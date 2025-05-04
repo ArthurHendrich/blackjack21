@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlackjackPro - Online Multiplayer Blackjack</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/landing.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="landing-container">
+        <header class="main-header">
+            <div class="logo">
+                <h1>Blackjack<span>Pro</span></h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="#" class="active">Home</a></li>
+                    <li><a href="#how-to-play">How to Play</a></li>
+                    <li><a href="#lan-mode">LAN Mode</a></li>
+                    <li><a href="#about">About</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero">
+                <div class="hero-content">
+                    <h2>The Ultimate Online Blackjack Experience</h2>
+                    <p>Play with friends or challenge players from around the world. Multiple tables, real-time gameplay, and exciting features await!</p>
+                    <div class="cta-buttons">
+                        <a href="play.html" class="btn btn-primary" id="play-as-guest">Play as Guest</a>
+                        <a href="#" class="btn btn-secondary" id="login-btn">Login</a>
+                        <a href="#" class="btn btn-outline" id="register-btn">Register</a>
+                    </div>
+                </div>
+                <div class="hero-image">
+                    <img src="assets/cards/back.png" alt="Playing cards">
+                </div>
+            </section>
+
+            <section id="how-to-play" class="how-to-play">
+                <h2>How to Play</h2>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <h3>Join a Table</h3>
+                        <p>Enter the lobby and choose from multiple tables with different stakes and player counts.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <h3>Play Your Hand</h3>
+                        <p>Hit to take another card or stand to keep your current hand. Try to get as close to 21 as possible without going over.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <h3>Beat the Dealer</h3>
+                        <p>Win by having a higher hand than the dealer without busting, or by the dealer busting while you stay under 21.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="lan-mode" class="features">
+                <h2>LAN Mode</h2>
+                <p class="section-description">Play with friends on the same local network! Connect multiple devices and enjoy the game together.</p>
+                
+                <div class="feature-grid">
+                    <div class="feature">
+                        <div class="feature-icon">🖥️</div>
+                        <h3>Host a Game</h3>
+                        <p>Start the server on your computer and invite friends to connect.</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">🌐</div>
+                        <h3>Connect via LAN</h3>
+                        <p>Other players can join using your local IP address.</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">👥</div>
+                        <h3>Multiplayer Tables</h3>
+                        <p>Create or join tables with up to 4 players per game.</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">💬</div>
+                        <h3>Real-time Chat</h3>
+                        <p>Chat with other players during the game.</p>
+                    </div>
+                </div>
+                
+                <div class="lan-instructions">
+                    <h3>How to Play in LAN Mode</h3>
+                    <ol>
+                        <li><strong>Host:</strong> Run the server using <code>npm start</code> in the terminal</li>
+                        <li><strong>Host:</strong> Connect to <code>http://localhost:3000</code> in your browser</li>
+                        <li><strong>Players:</strong> Connect to the host's IP address (e.g., <code>http://192.168.1.100:3000</code>)</li>
+                        <li><strong>Everyone:</strong> Create or join a table and start playing!</li>
+                    </ol>
+                </div>
+            </section>
+
+            <section id="features" class="features">
+                <h2>Game Features</h2>
+                <div class="feature-grid">
+                    <div class="feature">
+                        <div class="feature-icon">🌐</div>
+                        <h3>Real-time Multiplayer</h3>
+                        <p>Play with friends or challenge players from around the world in real-time.</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">🎮</div>
+                        <h3>Multiple Tables</h3>
+                        <p>Choose from various tables with different stakes and player counts.</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">💬</div>
+                        <h3>Live Chat</h3>
+                        <p>Chat with other players at your table during the game.</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">📊</div>
+                        <h3>Statistics</h3>
+                        <p>Track your performance with detailed statistics and leaderboards.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h2>Blackjack<span>Pro</span></h2>
+                </div>
+                <div class="footer-links">
+                    <h3>Links</h3>
+                    <ul>
+                        <li><a href="#">Home</a></li>
+                        <li><a href="#how-to-play">How to Play</a></li>
+                        <li><a href="#lan-mode">LAN Mode</a></li>
+                        <li><a href="#about">About</a></li>
+                        <li><a href="#terms">Terms of Service</a></li>
+                        <li><a href="#privacy">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                <div class="footer-contact">
+                    <h3>Contact</h3>
+                    <p>Email: support@blackjackpro.com</p>
+                    <div class="social-icons">
+                        <a href="#" class="social-icon">FB</a>
+                        <a href="#" class="social-icon">TW</a>
+                        <a href="#" class="social-icon">IG</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2023 BlackjackPro. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Login</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+            <p class="form-footer">Don't have an account? <a href="#" id="switch-to-register">Register</a></p>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div id="register-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Register</h2>
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="register-username">Username</label>
+                    <input type="text" id="register-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Password</label>
+                    <input type="password" id="register-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-confirm-password">Confirm Password</label>
+                    <input type="password" id="register-confirm-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Register</button>
+            </form>
+            <p class="form-footer">Already have an account? <a href="#" id="switch-to-login">Login</a></p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/auth.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/landing.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+/* Card styles using sprite sheets */
+.card {
+  display: inline-block;
+  background-repeat: no-repeat;
+  margin: 2px;
+  border-radius: 5px;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* Card sizes */
+.card.large {
+  background-image: url(../assets/cards-large.png);
+  width: 75px;
+  height: 125px;
+}
+
+.card.medium {
+  background-image: url(../assets/cards-medium.png);
+  width: 45px;
+  height: 75px;
+}
+
+.card.small {
+  background-image: url(../assets/cards-small.png);
+  width: 24px;
+  height: 40px;
+}
+
+/* Card back */
+.card.back.large {
+  background-position: 0px 0px;
+}
+
+.card.back.medium {
+  background-position: 0px 0px;
+}
+
+.card.back.small {
+  background-position: 0px 0px;
+}
+
+/* Card animations */
+.card.selected {
+  transform: translateY(-10px);
+  transition: transform 0.2s ease;
+}
+
+.card.dealing {
+  animation: deal-card 0.5s ease-out;
+}
+
+@keyframes deal-card {
+  0% {
+    transform: translateY(-100px) rotate(-10deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
+}
+
+/* Hover effect */
+.card:not(.back):hover {
+  transform: translateY(-5px);
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - BlackjackPro</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <h1>Blackjack<span>Pro</span></h1>
+            </div>
+            <nav class="user-nav">
+                <div class="nav-links">
+                    <a href="lobby.html" class="nav-link">Back to Lobby</a>
+                    <a href="#" class="nav-link" id="logout-btn">Logout</a>
+                </div>
+            </nav>
+        </header>
+
+        <main class="profile-main">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <img src="assets/avatars/avatar-1.png" alt="User Avatar" id="profile-avatar-img">
+                    <button class="change-avatar-btn" id="change-avatar-btn">Change</button>
+                </div>
+                <div class="profile-info">
+                    <h2 id="profile-username">Username</h2>
+                    <p>Member since: <span id="profile-join-date">January 1, 2023</span></p>
+                </div>
+            </div>
+
+            <div class="profile-content">
+                <div class="profile-section stats-section">
+                    <h3>Statistics</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="games-played">0</div>
+                            <div class="stat-label">Games Played</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="games-won">0</div>
+                            <div class="stat-label">Games Won</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="win-percentage">0%</div>
+                            <div class="stat-label">Win Rate</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="blackjacks">0</div>
+                            <div class="stat-label">Blackjacks</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section history-section">
+                    <h3>Game History</h3>
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Table</th>
+                                <th>Players</th>
+                                <th>Result</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="game-history">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="profile-section achievements-section">
+                    <h3>Achievements</h3>
+                    <div class="achievements-grid" id="achievements-grid">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div class="profile-section settings-section">
+                    <h3>Account Settings</h3>
+                    <form id="settings-form">
+                        <div class="form-group">
+                            <label for="settings-email">Email</label>
+                            <input type="email" id="settings-email">
+                        </div>
+                        <div class="form-group">
+                            <label for="settings-current-password">Current Password</label>
+                            <input type="password" id="settings-current-password">
+                        </div>
+                        <div class="form-group">
+                            <label for="settings-new-password">New Password</label>
+                            <input type="password" id="settings-new-password">
+                        </div>
+                        <div class="form-group">
+                            <label for="settings-confirm-password">Confirm New Password</label>
+                            <input type="password" id="settings-confirm-password">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <p>&copy; 2023 BlackjackPro. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Avatar Selection Modal -->
+    <div id="avatar-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Select Avatar</h2>
+            <div class="avatar-grid" id="avatar-grid">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            <button class="btn btn-primary" id="save-avatar-btn">Save</button>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/profile.js"></script>
+</body>
+</html>

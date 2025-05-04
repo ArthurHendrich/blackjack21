@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Sprite Test</title>
+    <link rel="stylesheet" href="css/cards.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        .card-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #0a5c36;
+            border-radius: 10px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #1e88e5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+        .size-selector {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .size-btn {
+            padding: 5px 10px;
+            background-color: #f5f5f5;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .size-btn.active {
+            background-color: #1e88e5;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Card Sprite Test</h1>
+    
+    <div class="size-selector">
+        <button class="size-btn active" data-size="large">Large</button>
+        <button class="size-btn" data-size="medium">Medium</button>
+        <button class="size-btn" data-size="small">Small</button>
+    </div>
+    
+    <h2>Full Deck</h2>
+    <div class="card-container" id="full-deck"></div>
+    
+    <div class="controls">
+        <button id="shuffle-btn">Shuffle Deck</button>
+        <button id="deal-btn">Deal Hand</button>
+        <button id="reset-btn">Reset</button>
+    </div>
+    
+    <h2>Dealt Hand</h2>
+    <div class="card-container" id="dealt-hand"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Card Sprites implementation
+            const CardSprites = {
+                // Suit constants
+                SUITS: {
+                    HEARTS: 0,
+                    DIAMONDS: 1,
+                    CLUBS: 2,
+                    SPADES: 3
+                },
+                
+                // Rank constants
+                RANKS: {
+                    ACE: 1,
+                    JACK: 11,
+                    QUEEN: 12,
+                    KING: 13
+                },
+                
+                // Card dimensions for each size
+                CARD_DIMENSIONS: {
+                    small: { width: 24, height: 40 },
+                    medium: { width: 45, height: 75 },
+                    large: { width: 75, height: 125 }
+                },
+                
+                // Create a card element
+                createCardElement: function(rank, suit, size = 'large') {
+                    const cardElement = document.createElement('div');
+                    cardElement.className = `card ${size}`;
+                    cardElement.dataset.rank = rank;
+                    cardElement.dataset.suit = suit;
+                    
+                    // Set background position
+                    this.setCardSprite(cardElement, rank, suit);
+                    
+                    return cardElement;
+                },
+                
+                // Set card sprite background position
+                setCardSprite: function(cardElement, rank, suit) {
+                    // Determine card size
+                    let size = 'large'; // Default size
+                    if (cardElement.classList.contains('small')) {
+                        size = 'small';
+                    } else if (cardElement.classList.contains('medium')) {
+                        size = 'medium';
+                    }
+                    
+                    const { width, height } = this.CARD_DIMENSIONS[size];
+                    
+                    // Calculate background position
+                    let x = 0;
+                    let y = 0;
+                    
+                    // Position based on suit and rank
+                    if (suit === this.SUITS.HEARTS || suit === this.SUITS.DIAMONDS) {
+                        y = 0;
+                    } else {
+                        y = -height;
+                    }
+                    
+                    // Skip card back (first card in sheet)
+                    x = -width;
+                    
+                    // Adjust for rank
+                    x -= (rank - 1) * width;
+                    
+                    // Adjust for suit (hearts/diamonds in first row, clubs/spades in second row)
+                    if (suit === this.SUITS.DIAMONDS || suit === this.SUITS.SPADES) {
+                        x -= 13 * width; // Move to second half of row
+                    }
+                    
+                    // Set background position
+                    cardElement.style.backgroundPosition = `${x}px ${y}px`;
+                },
+                
+                // Create a deck of cards
+                createDeck: function() {
+                    const deck = [];
+                    
+                    for (let suit = 0; suit < 4; suit++) {
+                        for (let rank = 1; rank <= 13; rank++) {
+                            deck.push({
+                                rank,
+                                suit
+                            });
+                        }
+                    }
+                    
+                    return deck;
+                },
+                
+                // Shuffle a deck of cards
+                shuffleDeck: function(deck) {
+                    const shuffled = [...deck];
+                    
+                    for (let i = shuffled.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                    }
+                    
+                    return shuffled;
+                }
+            };
+            
+            const fullDeckContainer = document.getElementById('full-deck');
+            const dealtHandContainer = document.getElementById('dealt-hand');
+            const shuffleBtn = document.getElementById('shuffle-btn');
+            const dealBtn = document.getElementById('deal-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const sizeBtns = document.querySelectorAll('.size-btn');
+            
+            let currentSize = 'large';
+            let deck = [];
+            
+            // Initialize deck
+            function initDeck() {
+                deck = CardSprites.createDeck();
+                renderDeck();
+            }
+            
+            // Render deck
+            function renderDeck() {
+                fullDeckContainer.innerHTML = '';
+                
+                deck.forEach(card => {
+                    const cardElement = CardSprites.createCardElement(card.rank, card.suit, currentSize);
+                    fullDeckContainer.appendChild(cardElement);
+                });
+            }
+            
+            // Shuffle deck
+            function shuffleDeck() {
+                deck = CardSprites.shuffleDeck(deck);
+                renderDeck();
+            }
+            
+            // Deal hand
+            function dealHand() {
+                if (deck.length < 5) {
+                    alert('Not enough cards left in the deck!');
+                    return;
+                }
+                
+                dealtHandContainer.innerHTML = '';
+                
+                // Deal 5 cards
+                for (let i = 0; i < 5; i++) {
+                    const card = deck.pop();
+                    const cardElement = CardSprites.createCardElement(card.rank, card.suit, currentSize);
+                    dealtHandContainer.appendChild(cardElement);
+                }
+                
+                renderDeck();
+            }
+            
+            // Change card size
+            function changeSize(size) {
+                currentSize = size;
+                
+                // Update active button
+                sizeBtns.forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.size === size);
+                });
+                
+                // Re-render cards
+                renderDeck();
+                
+                // Re-render dealt hand
+                const dealtCards = dealtHandContainer.querySelectorAll('.card');
+                dealtCards.forEach(cardElement => {
+                    const rank = parseInt(cardElement.dataset.rank);
+                    const suit = parseInt(cardElement.dataset.suit);
+                    
+                    // Replace with new size
+                    const newCardElement = CardSprites.createCardElement(rank, suit, currentSize);
+                    cardElement.replaceWith(newCardElement);
+                });
+            }
+            
+            // Event listeners
+            shuffleBtn.addEventListener('click', shuffleDeck);
+            dealBtn.addEventListener('click', dealHand);
+            resetBtn.addEventListener('click', initDeck);
+            
+            sizeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    changeSize(btn.dataset.size);
+                });
+            });
+            
+            // Initialize
+            initDeck();
+        });
+    </script>
+</body>
+</html>

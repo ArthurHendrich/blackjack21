@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Blackjack - BlackjackPro</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/cards.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0A5C36;
+            color: white;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .setup-screen {
+            max-width: 600px;
+            margin: 2rem auto;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .setup-screen h2 {
+            color: #ffd700;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .game-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .game-header {
+            background-color: #043A21;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .game-content {
+            flex: 1;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 2rem;
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        
+        .dealer-area, .player-area {
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .dealer-area h3, .player-area h3 {
+            margin-bottom: 1rem;
+            color: #ffd700;
+        }
+        
+        .cards-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .card {
+            width: 100px;
+            height: 140px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card.face-down {
+            background-image: url('assets/cards/back.png');
+            background-size: cover;
+        }
+        
+        .card img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        
+        .game-controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .btn-primary {
+            background-color: #1e88e5;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1565c0;
+        }
+        
+        .btn-action {
+            background-color: #212121;
+            color: white;
+        }
+        
+        .btn-action:hover {
+            background-color: #424242;
+        }
+        
+        .btn-action:disabled {
+            background-color: #757575;
+            cursor: not-allowed;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+        }
+        
+        .results-table th, .results-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .results-table th {
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+        
+        .screen {
+            display: none;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        .timer {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .timer-bar-container {
+            width: 200px;
+            height: 10px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .timer-bar {
+            height: 100%;
+            background-color: #1e88e5;
+            width: 100%;
+            transition: width 1s linear;
+        }
+        
+        .timer-bar.warning {
+            background-color: #ff9800;
+        }
+        
+        .timer-bar.danger {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <header class="game-header">
+            <div class="logo">
+                <h1>Blackjack<span>Pro</span></h1>
+            </div>
+            <div class="game-actions">
+                <a href="index.html" class="btn btn-primary">Back to Home</a>
+            </div>
+        </header>
+
+        <div class="game-content">
+            <div id="setup-screen" class="setup-screen active">
+                <h2>Game Setup</h2>
+                <form id="setup-form">
+                    <div class="form-group">
+                        <label for="player-count">Number of Players:</label>
+                        <select id="player-count" required>
+                            <option value="1">1 Player</option>
+                            <option value="2">2 Players</option>
+                            <option value="3">3 Players</option>
+                            <option value="4">4 Players</option>
+                        </select>
+                    </div>
+                    <div id="player-names-container">
+                        <div class="form-group">
+                            <label for="player1">Player 1 Name:</label>
+                            <input type="text" id="player1" value="Player 1" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="rounds">Number of Rounds:</label>
+                        <input type="number" id="rounds" min="1" value="3" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="timeout">Turn Timeout (seconds):</label>
+                        <input type="number" id="timeout" min="10" max="60" value="30" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Start Game</button>
+                </form>
+            </div>
+
+            <div id="game-screen" class="screen">
+                <div class="game-info">
+                    <div>Round: <span id="current-round">1</span>/<span id="total-rounds">3</span></div>
+                    <div class="timer">
+                        <span>Time Left: <span id="time-left">30</span>s</span>
+                        <div class="timer-bar-container">
+                            <div class="timer-bar" id="timer-bar"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dealer-area">
+                    <h3>Dealer</h3>
+                    <div class="cards-container" id="dealer-cards"></div>
+                    <div class="score" id="dealer-score">Score: 0</div>
+                </div>
+
+                <div id="players-container"></div>
+
+                <div class="game-controls">
+                    <button id="hit-btn" class="btn btn-action">Hit</button>
+                    <button id="stand-btn" class="btn btn-action">Stand</button>
+                </div>
+            </div>
+
+            <div id="results-screen" class="screen">
+                <h2>Game Results</h2>
+                <div id="final-scores"></div>
+                <div id="winner-announcement"></div>
+                <button id="new-game-btn" class="btn btn-primary">New Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Modal -->
+    <div id="message-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <p id="modal-message"></p>
+            <button id="modal-close" class="btn btn-primary">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            currentRound: 1,
+            totalRounds: 3,
+            currentPlayerIndex: 0,
+            deck: [],
+            dealer: {
+                hand: [],
+                score: 0
+            },
+            players: [],
+            timer: null,
+            timeLeft: 30
+        };
+
+        // DOM elements
+        let setupScreen;
+        let gameScreen;
+        let resultsScreen;
+        let setupForm;
+        let playerCount;
+        let playerNamesContainer;
+        let currentRoundElement;
+        let totalRoundsElement;
+        let timeLeftElement;
+        let timerBar;
+        let dealerCardsElement;
+        let dealerScoreElement;
+        let playersContainerElement;
+        let hitBtn;
+        let standBtn;
+        let finalScoresElement;
+        let winnerAnnouncementElement;
+        let newGameBtn;
+
+        // Calculate hand value
+        function calculateHandValue(hand) {
+            let value = 0;
+            let aceCount = 0;
+
+            for (const card of hand) {
+                const cardValue = parseInt(card.value);
+                if (cardValue === 14) { // Ás
+                    aceCount++;
+                    value += 11;
+                } else if (cardValue >= 11) { // J, Q, K
+                    value += 10;
+                } else {
+                    value += cardValue;
+                }
+            }
+
+            // Adjust for aces if needed
+            while (value > 21 && aceCount > 0) {
+                value -= 10;
+                aceCount--;
+            }
+
+            return value;
+        }
+
+        // Check if hand is busted
+        function checkIfBusted(hand) {
+            return calculateHandValue(hand) > 21;
+        }
+
+        // Create and shuffle deck
+        function createDeck() {
+            const suits = ["hearts", "diamonds", "clubs", "spades"];
+            const values = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"];
+            const deck = [];
+
+            for (const suit of suits) {
+                for (const value of values) {
+                    deck.push({
+                        suit,
+                        value,
+                        displayValue: value,
+                        suitSymbol: getSuitSymbol(suit),
+                        color: suit === "hearts" || suit === "diamonds" ? "red" : "black",
+                        imagePath: `assets/cards/${value}${suit.charAt(0).toUpperCase()}.gif`
+                    });
+                }
+            }
+
+            // Embaralhar o baralho
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+
+            return deck;
+        }
+
+        // Get suit symbol
+        function getSuitSymbol(suit) {
+            switch (suit) {
+                case "hearts": return "♥";
+                case "diamonds": return "♦";
+                case "clubs": return "♣";
+                case "spades": return "♠";
+                default: return "";
+            }
+        }
+
+        // Draw a card from the deck
+        function drawCard() {
+            return gameState.deck.pop();
+        }
+
+        // Deal initial cards
+        function dealInitialCards() {
+            // Deal first card to each player
+            gameState.players.forEach(player => {
+                player.hand.push(drawCard());
+            });
+
+            // Deal first card to dealer
+            gameState.dealer.hand.push(drawCard());
+
+            // Deal second card to each player
+            gameState.players.forEach(player => {
+                player.hand.push(drawCard());
+            });
+
+            // Deal second card to dealer
+            gameState.dealer.hand.push(drawCard());
+        }
+
+        // Update game info
+        function updateGameInfo() {
+            currentRoundElement.textContent = gameState.currentRound;
+            totalRoundsElement.textContent = gameState.totalRounds;
+        }
+
+        // Render dealer's cards
+        function renderDealerCards(hideFirst = false) {
+            dealerCardsElement.innerHTML = "";
+
+            gameState.dealer.hand.forEach((card, index) => {
+                const cardElement = document.createElement("div");
+                cardElement.className = "card";
+                
+                if (index === 0 && hideFirst) {
+                    cardElement.classList.add("face-down");
+                } else {
+                    cardElement.style.color = card.color;
+                    const img = document.createElement("img");
+                    img.src = card.imagePath;
+                    img.alt = `${card.value} of ${card.suit}`;
+                    cardElement.appendChild(img);
+                }
+                
+                dealerCardsElement.appendChild(cardElement);
+            });
+
+            // Update dealer score
+            if (hideFirst) {
+                // Only show the value of the visible card
+                const visibleCards = gameState.dealer.hand.slice(1);
+                const visibleScore = calculateHandValue(visibleCards);
+                dealerScoreElement.textContent = `Score: ${visibleScore}+`;
+            } else {
+                const score = calculateHandValue(gameState.dealer.hand);
+                dealerScoreElement.textContent = `Score: ${score}`;
+            }
+        }
+
+        // Render players' areas
+        function renderPlayers() {
+            playersContainerElement.innerHTML = "";
+
+            gameState.players.forEach((player, index) => {
+                const isActive = index === gameState.currentPlayerIndex;
+                const handValue = calculateHandValue(player.hand);
+                const busted = checkIfBusted(player.hand);
+                const hasStood = player.stood;
+
+                const playerArea = document.createElement("div");
+                playerArea.className = `player-area ${isActive ? "active" : ""}`;
+                
+                playerArea.innerHTML = `
+                    <h3>${player.name} ${busted ? "(Busted)" : ""} ${hasStood ? "(Stood)" : ""}</h3>
+                    <div class="cards-container" id="player-${index}-cards"></div>
+                    <div class="score">Score: ${handValue}</div>
+                `;
+
+                playersContainerElement.appendChild(playerArea);
+
+                // Render player cards
+                const playerCardsContainer = playerArea.querySelector(`#player-${index}-cards`);
+                player.hand.forEach(card => {
+                    const cardElement = document.createElement("div");
+                    cardElement.className = "card";
+                    cardElement.style.color = card.color;
+                    
+                    const img = document.createElement("img");
+                    img.src = card.imagePath;
+                    img.alt = `${card.value} of ${card.suit}`;
+                    cardElement.appendChild(img);
+                    
+                    playerCardsContainer.appendChild(cardElement);
+                });
+            });
+        }
+
+        // Update game controls
+        function updateControls(canHit, canStand) {
+            hitBtn.disabled = !canHit;
+            standBtn.disabled = !canStand;
+        }
+
+        // Start timer
+        function startTimer(seconds) {
+            let timeLeft = seconds;
+            timeLeftElement.textContent = timeLeft;
+            timerBar.style.width = "100%";
+            timerBar.classList.remove("warning", "danger");
+
+            clearInterval(gameState.timer);
+            gameState.timer = setInterval(() => {
+                timeLeft--;
+                timeLeftElement.textContent = timeLeft;
+                timerBar.style.width = `${(timeLeft / seconds) * 100}%`;
+
+                // Add warning classes
+                if (timeLeft <= seconds * 0.5) {
+                    timerBar.classList.add("warning");
+                }
+                if (timeLeft <= seconds * 0.25) {
+                    timerBar.classList.add("danger");
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(gameState.timer);
+                    handleStand(); // Auto-stand when time runs out
+                }
+            }, 1000);
+        }
+
+        // Handle hit button click
+        function handleHit() {
+            const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+
+            // Add card to player's hand
+            currentPlayer.hand.push(drawCard());
+
+            // Check if player busts
+            if (checkIfBusted(currentPlayer.hand)) {
+                currentPlayer.stood = true;
+                nextTurn();
+            }
+
+            // Update UI
+            renderPlayers();
+        }
+
+        // Handle stand button click
+        function handleStand() {
+            const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+            currentPlayer.stood = true;
+
+            nextTurn();
+        }
+
+        // Move to next turn
+        function nextTurn() {
+            // Find next player who hasn't stood yet
+            let nextPlayerIndex = gameState.currentPlayerIndex + 1;
+
+            while (nextPlayerIndex < gameState.players.length && gameState.players[nextPlayerIndex].stood) {
+                nextPlayerIndex++;
+            }
+
+            // If all players have played, it's dealer's turn
+            if (nextPlayerIndex >= gameState.players.length) {
+                dealerPlay();
+            } else {
+                gameState.currentPlayerIndex = nextPlayerIndex;
+                renderPlayers();
+                updateControls(true, true);
+                
+                // Reset timer
+                if (gameState.timeLeft) {
+                    startTimer(gameState.timeLeft);
+                }
+            }
+        }
+
+        // Dealer plays
+        function dealerPlay() {
+            // Show dealer's hidden card
+            renderDealerCards(false);
+
+            // Dealer draws until 17 or higher
+            while (calculateHandValue(gameState.dealer.hand) < 17) {
+                gameState.dealer.hand.push(drawCard());
+                renderDealerCards(false);
+            }
+
+            // End round
+            endRound();
+        }
+
+        // End the round
+        function endRound() {
+            const dealerScore = calculateHandValue(gameState.dealer.hand);
+            const dealerBusted = checkIfBusted(gameState.dealer.hand);
+
+            // Calculate scores
+            gameState.players.forEach(player => {
+                const playerScore = calculateHandValue(player.hand);
+                const playerBusted = checkIfBusted(player.hand);
+
+                if (playerBusted) {
+                    // Player busts, no points
+                } else if (dealerBusted || playerScore > dealerScore) {
+                    // Player wins
+                    player.score++;
+                } else if (playerScore === dealerScore) {
+                    // Push (tie)
+                    player.score += 0.5;
+                }
+            });
+
+            // Check if game is over
+            if (gameState.currentRound >= gameState.totalRounds) {
+                endGame();
+            } else {
+                // Prepare for next round
+                prepareNextRound();
+            }
+        }
+
+        // Prepare for next round
+        function prepareNextRound() {
+            gameState.currentRound++;
+            gameState.currentPlayerIndex = 0;
+
+            // Reset deck if needed
+            if (gameState.deck.length < 20) {
+                gameState.deck = createDeck();
+            }
+
+            // Reset hands
+            gameState.dealer.hand = [];
+            gameState.players.forEach(player => {
+                player.hand = [];
+                player.stood = false;
+            });
+
+            // Deal new cards
+            dealInitialCards();
+
+            // Update UI
+            updateGameInfo();
+            renderDealerCards(true);
+            renderPlayers();
+            updateControls(true, true);
+
+            // Reset timer
+            if (gameState.timeLeft) {
+                startTimer(gameState.timeLeft);
+            }
+        }
+
+        // End the game
+        function endGame() {
+            // Find winner
+            let winner = null;
+            let maxScore = -1;
+
+            gameState.players.forEach(player => {
+                if (player.score > maxScore) {
+                    maxScore = player.score;
+                    winner = player;
+                }
+            });
+
+            // Show results
+            let html = '<table class="results-table"><thead><tr><th>Player</th><th>Score</th></tr></thead><tbody>';
+
+            // Add dealer
+            html += `
+                <tr>
+                    <td>Dealer</td>
+                    <td>${calculateHandValue(gameState.dealer.hand)}</td>
+                </tr>
+            `;
+
+            // Add players
+            gameState.players.forEach(player => {
+                html += `
+                    <tr>
+                        <td>${player.name}</td>
+                        <td>${player.score}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            finalScoresElement.innerHTML = html;
+
+            // Show winner
+            if (winner) {
+                winnerAnnouncementElement.textContent = `Winner: ${winner.name}!`;
+            } else {
+                winnerAnnouncementElement.textContent = 'No winner!';
+            }
+
+            // Show results screen
+            setupScreen.classList.remove("active");
+            gameScreen.classList.remove("active");
+            resultsScreen.classList.add("active");
+        }
+
+        // Handle new game button click
+        function handleNewGame() {
+            // Show setup screen
+            setupScreen.classList.add("active");
+            gameScreen.classList.remove("active");
+            resultsScreen.classList.remove("active");
+        }
+
+        // Update player name input fields based on player count
+        function updatePlayerNameFields() {
+            const count = parseInt(playerCount.value);
+            let html = "";
+
+            for (let i = 1; i <= count; i++) {
+                html += `
+                    <div class="form-group">
+                        <label for="player${i}">Player ${i} Name:</label>
+                        <input type="text" id="player${i}" value="Player ${i}" required>
+                    </div>
+                `;
+            }
+
+            playerNamesContainer.innerHTML = html;
+        }
+
+        // Handle setup form submission
+        function handleSetupFormSubmit(event) {
+            event.preventDefault();
+
+            // Get form values
+            const count = parseInt(playerCount.value);
+            const rounds = parseInt(document.getElementById("rounds").value);
+            const timeout = parseInt(document.getElementById("timeout").value);
+
+            // Get player names
+            const playerNames = [];
+            for (let i = 1; i <= count; i++) {
+                const nameInput = document.getElementById(`player${i}`);
+                playerNames.push(nameInput.value);
+            }
+
+            // Initialize game
+            initGame(playerNames, rounds, timeout);
+
+            // Show game screen
+            setupScreen.classList.remove("active");
+            gameScreen.classList.add("active");
+            resultsScreen.classList.remove("active");
+        }
+
+        // Initialize game
+        function initGame(playerNames, rounds, timeout) {
+            // Create and shuffle deck
+            gameState.deck = createDeck();
+            gameState.totalRounds = rounds;
+            gameState.currentRound = 1;
+            gameState.timeLeft = timeout;
+
+            // Initialize players
+            gameState.players = playerNames.map((name, index) => ({
+                id: `player_${index}`,
+                name,
+                hand: [],
+                score: 0,
+                stood: false
+            }));
+
+            // Initialize dealer
+            gameState.dealer = {
+                hand: [],
+                score: 0
+            };
+
+            // Deal initial cards
+            dealInitialCards();
+
+            // Update UI
+            updateGameInfo();
+            renderDealerCards(true);
+            renderPlayers();
+            updateControls(true, true);
+
+            // Start timer if specified
+            if (timeout) {
+                startTimer(timeout);
+            }
+        }
+
+        // Initialize the game when DOM is loaded
+        document.addEventListener("DOMContentLoaded", () => {
+            // Initialize DOM elements
+            setupScreen = document.getElementById("setup-screen");
+            gameScreen = document.getElementById("game-screen");
+            resultsScreen = document.getElementById("results-screen");
+            setupForm = document.getElementById("setup-form");
+            playerCount = document.getElementById("player-count");
+            playerNamesContainer = document.getElementById("player-names-container");
+            currentRoundElement = document.getElementById("current-round");
+            totalRoundsElement = document.getElementById("total-rounds");
+            timeLeftElement = document.getElementById("time-left");
+            timerBar = document.getElementById("timer-bar");
+            dealerCardsElement = document.getElementById("dealer-cards");
+            dealerScoreElement = document.getElementById("dealer-score");
+            playersContainerElement = document.getElementById("players-container");
+            hitBtn = document.getElementById("hit-btn");
+            standBtn = document.getElementById("stand-btn");
+            finalScoresElement = document.getElementById("final-scores");
+            winnerAnnouncementElement = document.getElementById("winner-announcement");
+            newGameBtn = document.getElementById("new-game-btn");
+
+            // Set up event listeners
+            playerCount.addEventListener("change", updatePlayerNameFields);
+            setupForm.addEventListener("submit", handleSetupFormSubmit);
+            hitBtn.addEventListener("click", handleHit);
+            standBtn.addEventListener("click", handleStand);
+            newGameBtn.addEventListener("click", handleNewGame);
+
+            // Initial player name fields
+            updatePlayerNameFields();
+        });
+    </script>
+</body>
+</html>

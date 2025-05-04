@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lobby - BlackjackPro</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/lobby.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <h1>Blackjack<span>Pro</span></h1>
+            </div>
+            <nav class="user-nav">
+                <div class="user-info">
+                    <img src="assets/avatars/avatar-1.png" alt="User Avatar" class="user-avatar">
+                    <span class="username" id="display-username">Guest</span>
+                </div>
+                <div class="nav-links">
+                    <a href="profile.html" class="nav-link">Profile</a>
+                    <a href="#" class="nav-link" id="logout-btn">Logout</a>
+                </div>
+            </nav>
+        </header>
+
+        <main class="lobby-main">
+            <div class="lobby-sidebar">
+                <div class="online-players">
+                    <h3>Online Players</h3>
+                    <div class="player-count">
+                        <span id="online-count">0</span> players online
+                    </div>
+                    <ul class="online-players-list" id="online-players-list">
+                        <!-- Will be populated by JavaScript -->
+                    </ul>
+                </div>
+                <div class="global-chat">
+                    <h3>Global Chat</h3>
+                    <div class="chat-messages" id="global-chat-messages">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="global-chat-input" placeholder="Type a message...">
+                        <button id="send-global-chat">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lobby-content">
+                <div class="lobby-header">
+                    <h2>Game Lobby</h2>
+                    <div class="lobby-actions">
+                        <button class="btn btn-primary" id="create-table-btn">Create Table</button>
+                        <div class="search-container">
+                            <input type="text" id="table-search" placeholder="Search tables...">
+                        </div>
+                        <div class="filter-container">
+                            <select id="table-filter">
+                                <option value="all">All Tables</option>
+                                <option value="available">Available Seats</option>
+                                <option value="beginner">Beginner</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="expert">Expert</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tables-container">
+                    <div class="tables-grid" id="tables-grid">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <p>&copy; 2023 BlackjackPro. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Create Table Modal -->
+    <div id="create-table-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Create New Table</h2>
+            <form id="create-table-form">
+                <div class="form-group">
+                    <label for="table-name">Table Name</label>
+                    <input type="text" id="table-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="max-players">Max Players (2-4)</label>
+                    <input type="number" id="max-players" min="2" max="4" value="4" required>
+                </div>
+                <div class="form-group">
+                    <label for="num-rounds">Number of Rounds (min 3)</label>
+                    <input type="number" id="num-rounds" min="3" value="5" required>
+                </div>
+                <div class="form-group">
+                    <label for="turn-timeout">Turn Timeout (seconds)</label>
+                    <input type="number" id="turn-timeout" min="10" max="60" value="30" required>
+                </div>
+                <div class="form-group">
+                    <label for="table-level">Table Level</label>
+                    <select id="table-level">
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="expert">Expert</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="table-password">Password (Optional)</label>
+                    <input type="password" id="table-password">
+                    <small>Leave empty for a public table</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Table</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Join Table Modal -->
+    <div id="join-table-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Join Table</h2>
+            <div id="join-table-info">
+                <p><strong>Table:</strong> <span id="join-table-name"></span></p>
+                <p><strong>Host:</strong> <span id="join-table-host"></span></p>
+                <p><strong>Players:</strong> <span id="join-table-players"></span></p>
+                <p><strong>Level:</strong> <span id="join-table-level"></span></p>
+            </div>
+            <form id="join-table-form">
+                <div class="form-group" id="password-group" style="display: none;">
+                    <label for="join-table-password">Password</label>
+                    <input type="password" id="join-table-password">
+                </div>
+                <button type="submit" class="btn btn-primary">Join Table</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/lobby.js"></script>
+    <script>
+        // Script para monitorar e registrar erros 404
+        window.addEventListener('error', function(e) {
+            if (e.target.tagName === 'IMG' || e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+                console.error('Recurso não encontrado:', e.target.src || e.target.href);
+            }
+        }, true);
+    </script>
+</body>
+</html>

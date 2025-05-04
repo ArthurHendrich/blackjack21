@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game - BlackjackPro</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/cards.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <header class="game-header">
+            <div class="logo">
+                <h1>Blackjack<span>Pro</span></h1>
+            </div>
+            <div class="game-info">
+                <div class="table-info">
+                    <h3>Table: <span id="table-name">Loading...</span></h3>
+                </div>
+                <div class="round-info">
+                    <h3>Round: <span id="current-round">1</span>/<span id="total-rounds">5</span></h3>
+                </div>
+            </div>
+            <div class="game-actions">
+                <button class="btn btn-secondary" id="leave-table-btn">Leave Table</button>
+            </div>
+        </header>
+
+        <main class="game-main">
+            <div class="dealer-area">
+                <div class="dealer-info">
+                    <h3>Dealer</h3>
+                    <div class="dealer-score" id="dealer-score">Score: ?</div>
+                </div>
+                <div class="dealer-cards" id="dealer-cards">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="game-table">
+                <div class="table-center">
+                    <div class="deck" id="deck">
+                        <div class="card back large"></div>
+                    </div>
+                    <div class="game-message" id="game-message"></div>
+                </div>
+                
+                <div class="players-container" id="players-container">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="game-controls">
+                <div class="timer-container">
+                    <div class="timer-label">Time Left:</div>
+                    <div class="timer" id="timer">
+                        <div class="timer-bar" id="timer-bar"></div>
+                        <div class="timer-text" id="timer-text">30s</div>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-action" id="hit-btn" disabled>Hit</button>
+                    <button class="btn btn-action" id="stand-btn" disabled>Stand</button>
+                </div>
+            </div>
+
+            <div class="game-sidebar">
+                <div class="scoreboard">
+                    <h3>Scoreboard</h3>
+                    <table id="score-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Player</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="score-body">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-chat">
+                    <h3>Table Chat</h3>
+                    <div class="chat-messages" id="table-chat-messages">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="table-chat-input" placeholder="Type a message...">
+                        <button id="send-table-chat">Send</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Round Results Modal -->
+    <div id="round-results-modal" class="modal">
+        <div class="modal-content results-modal">
+            <h2>Round Results</h2>
+            <div class="dealer-result">
+                <h3>Dealer</h3>
+                <div class="result-cards" id="result-dealer-cards"></div>
+                <div class="result-score" id="result-dealer-score">Score: 0</div>
+            </div>
+            <div class="players-results" id="players-results">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            <div class="round-summary" id="round-summary">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            <button class="btn btn-primary" id="next-round-btn">Next Round</button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="game-over-modal" class="modal">
+        <div class="modal-content results-modal">
+            <h2>Game Over</h2>
+            <div class="final-scores" id="final-scores">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            <div class="winner-announcement" id="winner-announcement">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            <div class="game-over-actions">
+                <button class="btn btn-primary" id="play-again-btn">Play Again</button>
+                <button class="btn btn-secondary" id="return-lobby-btn">Return to Lobby</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Waiting for Players Modal -->
+    <div id="waiting-modal" class="modal">
+        <div class="modal-content">
+            <h2>Waiting for Players</h2>
+            <p>Current players: <span id="waiting-player-count">1</span>/<span id="waiting-max-players">4</span></p>
+            <div class="waiting-players" id="waiting-players">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            <div class="loading-spinner"></div>
+            <p>Game will start when enough players join or when the host starts the game.</p>
+            <button class="btn btn-primary" id="start-game-btn" style="display: none;">Start Game</button>
+            <button class="btn btn-secondary" id="cancel-game-btn">Cancel</button>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/card-sprites.js"></script>
+    <script src="js/cards.js"></script>
+    <script src="js/animations.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
