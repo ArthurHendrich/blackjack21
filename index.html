@@ -213,5 +213,79 @@
     <script src="js/auth.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/landing.js"></script>
+    <!-- Add a small script at the end of the body to help debug the modal issue -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        console.log("DOM fully loaded");
+        
+        // Test direct modal opening
+        const testOpenLogin = () => {
+          console.log("Testing direct modal open");
+          const loginModal = document.getElementById("login-modal");
+          if (loginModal) {
+            loginModal.classList.add("active");
+            console.log("Login modal should be visible now");
+          } else {
+            console.error("Login modal element not found");
+          }
+        };
+        
+        // Add a test button to the page
+        const testBtn = document.createElement("button");
+        testBtn.textContent = "Test Modal";
+        testBtn.style.position = "fixed";
+        testBtn.style.bottom = "10px";
+        testBtn.style.right = "10px";
+        testBtn.style.zIndex = "9999";
+        testBtn.style.padding = "10px";
+        testBtn.style.backgroundColor = "#ff0000";
+        testBtn.style.color = "#ffffff";
+        testBtn.style.border = "none";
+        testBtn.style.borderRadius = "5px";
+        testBtn.style.cursor = "pointer";
+        testBtn.addEventListener("click", testOpenLogin);
+        document.body.appendChild(testBtn);
+      });
+    </script>
+    <script>
+  // Debug script to help diagnose modal and authentication issues
+  console.log("Debug script loaded");
+  
+  // Check localStorage on page load
+  document.addEventListener("DOMContentLoaded", function() {
+    console.log("Current localStorage state:");
+    console.log("blackjack_current_user:", localStorage.getItem("blackjack_current_user"));
+    console.log("blackjack_users:", localStorage.getItem("blackjack_users"));
+    
+    // Add a debug button to test modal functionality
+    const debugBtn = document.createElement("button");
+    debugBtn.textContent = "Debug Auth";
+    debugBtn.style.position = "fixed";
+    debugBtn.style.bottom = "50px";
+    debugBtn.style.right = "10px";
+    debugBtn.style.zIndex = "9999";
+    debugBtn.style.padding = "10px";
+    debugBtn.style.backgroundColor = "#4caf50";
+    debugBtn.style.color = "#ffffff";
+    debugBtn.style.border = "none";
+    debugBtn.style.borderRadius = "5px";
+    debugBtn.style.cursor = "pointer";
+    
+    debugBtn.addEventListener("click", function() {
+      console.log("Auth debug info:");
+      console.log("Auth object exists:", !!window.Auth);
+      if (window.Auth) {
+        console.log("Is logged in:", window.Auth.isLoggedIn());
+        console.log("Current user:", window.Auth.getCurrentUser());
+      }
+      console.log("localStorage:", {
+        current_user: JSON.parse(localStorage.getItem("blackjack_current_user") || "null"),
+        users: JSON.parse(localStorage.getItem("blackjack_users") || "[]")
+      });
+    });
+    
+    document.body.appendChild(debugBtn);
+  });
+</script>
 </body>
 </html>

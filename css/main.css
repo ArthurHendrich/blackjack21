@@ -232,13 +232,16 @@ textarea:focus {
   height: 100%;
   background-color: rgba(0, 0, 0, 0.7);
   z-index: 1000;
+  display: none;
   justify-content: center;
   align-items: center;
-  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .modal.active {
   display: flex !important;
+  opacity: 1;
 }
 
 .modal-content {

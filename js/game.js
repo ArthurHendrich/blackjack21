@@ -4,6 +4,7 @@
 const CardSprites = window.CardSprites || {}
 const UI = window.UI || {}
 const Cards = window.Cards || {}
+const Animations = window.Animations || {}
 
 const Game = {
   // Game state
@@ -23,6 +24,7 @@ const Game = {
     timer: null,
     timeLeft: 30,
     isHost: false,
+    animationsEnabled: true,
   },
 
   // Initialize game
@@ -133,17 +135,92 @@ const Game = {
 
   // Dealer plays
   dealerPlay: function () {
-    // Show dealer's hidden card
-    UI.renderDealerCards(this.state.dealer.hand, false)
+    // Show dealer's hidden card with animation
+    this.revealDealerCard(() => {
+      // After card is revealed, dealer draws until 17 or higher
+      this.dealerDrawCards()
+    })
+  },
 
-    // Dealer draws until 17 or higher
-    while (Cards.calculateHandValue(this.state.dealer.hand) < 17) {
-      this.state.dealer.hand.push(this.drawCard())
+  // Reveal dealer's hidden card with animation
+  revealDealerCard: function (callback) {
+    // Get dealer card elements
+    const dealerCardsElement = document.getElementById("dealer-cards")
+    if (!dealerCardsElement) {
+      // If element not found, just proceed without animation
       UI.renderDealerCards(this.state.dealer.hand, false)
+      if (callback) callback()
+      return
     }
 
-    // End round
-    this.endRound()
+    // Get the first card (hidden card)
+    const hiddenCardElement = dealerCardsElement.querySelector(".card.face-down")
+    if (!hiddenCardElement) {
+      // If no hidden card, just proceed
+      UI.renderDealerCards(this.state.dealer.hand, false)
+      if (callback) callback()
+      return
+    }
+
+    // Create animation effect
+    if (this.state.animationsEnabled && window.Animations) {
+      // Add flip animation class
+      hiddenCardElement.classList.add("flipping")
+
+      // Play flip sound if available
+      if (window.playSound) {
+        window.playSound("card-flip")
+      }
+
+      // Animate the card flip
+      setTimeout(() => {
+        // Replace the hidden card with the actual card
+        UI.renderDealerCards(this.state.dealer.hand, false)
+
+        // Call the callback after animation completes
+        setTimeout(() => {
+          if (callback) callback()
+        }, 500)
+      }, 500)
+    } else {
+      // No animations, just update UI
+      UI.renderDealerCards(this.state.dealer.hand, false)
+      if (callback) callback()
+    }
+  },
+
+  // Dealer draws cards until 17 or higher
+  dealerDrawCards: function () {
+    const drawNextCard = () => {
+      // Calculate current hand value
+      const handValue = Cards.calculateHandValue(this.state.dealer.hand)
+
+      // If dealer has less than 17, draw another card
+      if (handValue < 17) {
+        // Draw a card
+        const newCard = this.drawCard()
+        this.state.dealer.hand.push(newCard)
+
+        // Update UI
+        UI.renderDealerCards(this.state.dealer.hand, false)
+
+        // Play card sound if available
+        if (window.playSound) {
+          window.playSound("card-deal")
+        }
+
+        // Wait a moment before drawing the next card
+        setTimeout(() => {
+          drawNextCard()
+        }, 1000)
+      } else {
+        // Dealer is done drawing, end the round
+        this.endRound()
+      }
+    }
+
+    // Start drawing cards
+    drawNextCard()
   },
 
   // End the round
@@ -172,12 +249,143 @@ const Game = {
       score: dealerBusted ? 0 : 1,
     })
 
-    // Check if game is over
-    if (this.state.currentRound >= this.state.totalRounds) {
-      this.endGame()
-    } else {
-      // Prepare for next round
+    // Show round results with a delay
+    setTimeout(() => {
+      // Check if game is over
+      if (this.state.currentRound >= this.state.totalRounds) {
+        this.endGame()
+      } else {
+        // Show round results
+        this.showRoundResults()
+      }
+    }, 1500)
+  },
+
+  // Show round results
+  showRoundResults: function () {
+    // Get elements
+    const roundResultsModal = document.getElementById("round-results-modal")
+    const resultDealerCards = document.getElementById("result-dealer-cards")
+    const resultDealerScore = document.getElementById("result-dealer-score")
+    const playersResults = document.getElementById("players-results")
+    const roundSummary = document.getElementById("round-summary")
+
+    if (!roundResultsModal || !resultDealerCards || !resultDealerScore || !playersResults || !roundSummary) {
+      // If elements not found, just prepare for next round
       this.prepareNextRound()
+      return
+    }
+
+    // Clear previous results
+    resultDealerCards.innerHTML = ""
+    playersResults.innerHTML = ""
+
+    // Show dealer's cards and score
+    const dealerValue = Cards.calculateHandValue(this.state.dealer.hand)
+    const dealerBusted = Cards.isBusted(this.state.dealer.hand)
+
+    this.state.dealer.hand.forEach((card) => {
+      const cardElement = document.createElement("div")
+      cardElement.className = "card small"
+
+      const img = document.createElement("img")
+      img.src = card.imagePath
+      img.alt = `${card.value} of ${card.suit}`
+      cardElement.appendChild(img)
+
+      resultDealerCards.appendChild(cardElement)
+    })
+
+    resultDealerScore.textContent = `Score: ${dealerValue}${dealerBusted ? " (Busted)" : ""}`
+
+    // Show players' results
+    this.state.players.forEach((player) => {
+      const playerResult = document.createElement("div")
+      playerResult.className = "player-result"
+
+      const playerValue = Cards.calculateHandValue(player.hand)
+      const playerBusted = Cards.isBusted(player.hand)
+
+      let resultStatus = ""
+      if (playerBusted) {
+        resultStatus = "Bust!"
+      } else if (dealerBusted) {
+        resultStatus = "Winner! +1 point"
+      } else if (playerValue > dealerValue) {
+        resultStatus = "Winner! +1 point"
+      } else if (playerValue === dealerValue) {
+        resultStatus = "Push (Tie) +0.5 point"
+      } else {
+        resultStatus = "Lost"
+      }
+
+      playerResult.innerHTML = `
+        <h3>${player.name}</h3>
+        <div class="result-cards" id="result-player-${player.id}-cards"></div>
+        <div class="result-score">Score: ${playerValue}${playerBusted ? " (Busted)" : ""}</div>
+        <div class="result-status ${playerBusted ? "loser" : (dealerBusted || playerValue > dealerValue) ? "winner" : playerValue === dealerValue ? "tie" : "loser"}">
+          ${resultStatus}
+        </div>
+      `
+
+      playersResults.appendChild(playerResult)
+
+      // Show player's cards
+      const playerCardsContainer = playerResult.querySelector(`#result-player-${player.id}-cards`)
+      if (playerCardsContainer) {
+        player.hand.forEach((card) => {
+          const cardElement = document.createElement("div")
+          cardElement.className = "card small"
+
+          const img = document.createElement("img")
+          img.src = card.imagePath
+          img.alt = `${card.value} of ${card.suit}`
+          cardElement.appendChild(img)
+
+          playerCardsContainer.appendChild(cardElement)
+        })
+      }
+    })
+
+    // Show round summary
+    const winners = this.state.players.filter((p) => {
+      const playerValue = Cards.calculateHandValue(p.hand)
+      const playerBusted = Cards.isBusted(p.hand)
+      return !playerBusted && (dealerBusted || playerValue > dealerValue)
+    })
+
+    if (winners.length > 0) {
+      roundSummary.innerHTML = `
+        <h3>Round ${this.state.currentRound} Summary</h3>
+        <p>${winners.map((p) => p.name).join(", ")} won this round!</p>
+      `
+    } else if (
+      this.state.players.some((p) => {
+        const playerValue = Cards.calculateHandValue(p.hand)
+        return !Cards.isBusted(p.hand) && playerValue === dealerValue
+      })
+    ) {
+      roundSummary.innerHTML = `
+        <h3>Round ${this.state.currentRound} Summary</h3>
+        <p>This round ended in a tie!</p>
+      `
+    } else {
+      roundSummary.innerHTML = `
+        <h3>Round ${this.state.currentRound} Summary</h3>
+        <p>Dealer wins this round!</p>
+      `
+    }
+
+    // Show modal
+    roundResultsModal.classList.add("active")
+
+    // Set up next round button
+    const nextRoundBtn = document.getElementById("next-round-btn")
+    if (nextRoundBtn) {
+      nextRoundBtn.onclick = () => {
+        roundResultsModal.classList.remove("active")
+        this.prepareNextRound()
+      }
     }
   },
 
@@ -188,7 +396,7 @@ const Game = {
 
     // Reset deck if needed
     if (this.state.deck.length < 20) {
-      this.state.deck = Cards.shuffleDeck(Cards.createDeck())
+      this.state.deck = CardSprites.shuffleDeck(CardSprites.createDeck())
     }
 
     // Reset hands
@@ -247,7 +455,7 @@ const Game = {
 }
 
 // Make Game available globally
-window.Game = Game;
+window.Game = Game
 
 document.addEventListener("DOMContentLoaded", () => {
   // Import necessary modules
@@ -332,6 +540,8 @@ document.addEventListener("DOMContentLoaded", () => {
         WebSocketClient.addEventListener("gameActionReceived", handleGameActionReceived)
         WebSocketClient.addEventListener("tableMessageReceived", handleTableMessageReceived)
         WebSocketClient.addEventListener("error", handleWebSocketError)
+        WebSocketClient.addEventListener("tablesUpdated", handleTablesUpdated)
+        WebSocketClient.addEventListener("playerJoined", handlePlayerJoined)
       }
     } else {
       // Fallback to local game if WebSocket is not available
@@ -348,6 +558,68 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle WebSocket disconnected
   const handleWebSocketDisconnected = () => {
     console.log("WebSocket disconnected")
+  }
+
+  // Handle tables updated
+  const handleTablesUpdated = (tables) => {
+    console.log("Tables updated in game.js:", tables)
+
+    if (!Array.isArray(tables) || tables.length === 0) {
+      console.log("No tables received or empty array")
+      return
+    }
+
+    // Find the current table
+    const urlParams = new URLSearchParams(window.location.search)
+    const tableId = urlParams.get("table")
+
+    const currentTable = tables.find((t) => t.id === tableId)
+
+    if (currentTable) {
+      console.log("Current table found in updated tables:", currentTable)
+
+      // Update game state with the latest table data
+      gameState.tableId = currentTable.id
+      gameState.tableName = currentTable.name
+      gameState.totalRounds = currentTable.rounds
+      gameState.players = currentTable.players
+      gameState.isHost = currentTable.host.id === currentUser.id
+      gameState.status = currentTable.status
+
+      // Update UI
+      if (tableName) tableName.textContent = currentTable.name
+      if (totalRounds) totalRounds.textContent = currentTable.rounds
+
+      // Update waiting modal if it's open
+      updateWaitingModal()
+
+      // Store the updated table in localStorage
+      const tables = JSON.parse(localStorage.getItem("blackjack_tables") || "[]")
+      const existingTableIndex = tables.findIndex((t) => t.id === currentTable.id)
+
+      if (existingTableIndex >= 0) {
+        tables[existingTableIndex] = currentTable
+      } else {
+        tables.push(currentTable)
+      }
+
+      localStorage.setItem("blackjack_tables", JSON.stringify(tables))
+      sessionStorage.setItem("shared_blackjack_tables", JSON.stringify(tables))
+    } else {
+      console.log("Current table not found in updated tables")
+    }
+  }
+
+  // Handle player joined
+  const handlePlayerJoined = (data) => {
+    console.log("Player joined:", data)
+
+    if (data && data.tableId === gameState.tableId) {
+      // Request latest table data
+      if (WebSocketClient && WebSocketClient.send) {
+        WebSocketClient.send("getTables")
+      }
+    }
   }
 
   // Handle game started
@@ -379,11 +651,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Load table data
   const loadTableData = (tableId) => {
-    const tables = JSON.parse(localStorage.getItem("blackjack_tables") || "[]")
+    console.log("Loading table data for ID:", tableId)
+
+    // Request latest tables from server
+    if (WebSocketClient && WebSocketClient.send) {
+      WebSocketClient.send("getTables")
+    }
+
+    // Try to get tables from sessionStorage first (shared between tabs)
+    const sharedTablesKey = "shared_blackjack_tables"
+    const sharedTables = sessionStorage.getItem(sharedTablesKey)
+    let tables = []
+
+    if (sharedTables) {
+      tables = JSON.parse(sharedTables)
+    } else {
+      // Fall back to localStorage if needed
+      const storedTables = JSON.parse(localStorage.getItem("blackjack_tables") || "[]")
+      tables = storedTables
+
+      // Update sessionStorage for sharing
+      sessionStorage.setItem(sharedTablesKey, JSON.stringify(tables))
+    }
+
     const table = tables.find((t) => t.id === tableId)
 
     if (!table) {
-      window.location.href = "lobby.html"
+      console.log("Table not found in local storage, waiting for server response...")
+      // Show waiting modal while we wait for server response
+      showWaitingModal()
       return
     }
 
@@ -395,8 +691,8 @@ document.addEventListener("DOMContentLoaded", () => {
     gameState.isHost = table.host.id === currentUser.id
 
     // Update UI
-    tableName.textContent = table.name
-    totalRounds.textContent = table.rounds
+    if (tableName) tableName.textContent = table.name
+    if (totalRounds) totalRounds.textContent = table.rounds
 
     // Check if game is already in progress
     if (table.status === "playing") {
@@ -421,39 +717,46 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadTableMessages = () => {
     const tableMessages = JSON.parse(localStorage.getItem("blackjack_table_messages") || "{}")
 
-    if (gameState.tableId && tableMessages[gameState.tableId]) {
+    if (gameState.tableId && tableMessages[gameState.tableId] && tableChatMessages) {
       tableChatMessages.innerHTML = ""
       tableMessages[gameState.tableId].forEach(addTableChatMessage)
     }
   }
 
-  // Show waiting modal
-  const showWaitingModal = () => {
+  // Update waiting modal
+  const updateWaitingModal = () => {
     // Update waiting modal content
-    document.getElementById("waiting-player-count").textContent = gameState.players.length
-    document.getElementById("waiting-max-players").textContent = 4
-
+    const waitingPlayerCount = document.getElementById("waiting-player-count")
+    const waitingMaxPlayers = document.getElementById("waiting-max-players")
     const waitingPlayers = document.getElementById("waiting-players")
-    waitingPlayers.innerHTML = ""
 
-    gameState.players.forEach((player) => {
-      const playerDiv = document.createElement("div")
-      playerDiv.className = "waiting-player"
-      playerDiv.innerHTML = `
-                <img src="assets/avatar-placeholder.png" alt="${player.username}" class="waiting-player-avatar">
-                <span class="waiting-player-name">${player.username}</span>
-                ${player.id === gameState.players[0].id ? '<span class="host-badge">Host</span>' : ""}
-            `
-      waitingPlayers.appendChild(playerDiv)
-    })
+    if (waitingPlayerCount) waitingPlayerCount.textContent = gameState.players.length
+    if (waitingMaxPlayers) waitingMaxPlayers.textContent = 4
 
-    // Show start game button for host
-    if (gameState.isHost) {
-      startGameBtn.style.display = "block"
-    } else {
-      startGameBtn.style.display = "none"
+    if (waitingPlayers) {
+      waitingPlayers.innerHTML = ""
+
+      gameState.players.forEach((player) => {
+        const playerDiv = document.createElement("div")
+        playerDiv.className = "waiting-player"
+        playerDiv.innerHTML = `
+          <img src="assets/avatars/avatar-1.png" alt="${player.username}" class="waiting-player-avatar">
+          <span class="waiting-player-name">${player.username}</span>
+          ${player.id === gameState.players[0].id ? '<span class="host-badge">Host</span>' : ""}
+        `
+        waitingPlayers.appendChild(playerDiv)
+      })
     }
 
+    // Show start game button for host
+    if (startGameBtn) {
+      startGameBtn.style.display = gameState.isHost ? "block" : "none"
+    }
+  }
+
+  // Show waiting modal
+  const showWaitingModal = () => {
+    updateWaitingModal()
     openModal(waitingModal)
   }
 
@@ -465,7 +768,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Update UI
-    currentRound.textContent = gameState.currentRound
+    if (currentRound) currentRound.textContent = gameState.currentRound
 
     // Render players
     renderPlayers()
@@ -482,6 +785,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Render players
   const renderPlayers = () => {
+    if (!playersContainer) return
+
     playersContainer.innerHTML = ""
 
     // Create player positions based on max players
@@ -498,19 +803,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (player) {
         playerDiv.innerHTML = `
-                    <div class="player-info">
-                        <div class="player-name">${player.username} ${isCurrentPlayer ? "(You)" : ""}</div>
-                        <div class="player-score">${player.score || 0}</div>
-                    </div>
-                    ${player.status ? `<div class="player-status">${player.status === "bust" ? "Bust!" : player.status}</div>` : ""}
-                    <div class="player-cards" id="player-cards-${player.id}"></div>
-                `
+          <div class="player-info">
+            <div class="player-name">${player.username} ${isCurrentPlayer ? "(You)" : ""}</div>
+            <div class="player-score">${player.score || 0}</div>
+          </div>
+          ${player.status ? `<div class="player-status">${player.status === "bust" ? "Bust!" : player.status}</div>` : ""}
+          <div class="player-cards" id="player-cards-${player.id}"></div>
+        `
 
         // Render player cards
         const playerCardsContainer = playerDiv.querySelector(`#player-cards-${player.id}`)
-        if (player.hand && player.hand.length > 0) {
+        if (playerCardsContainer && player.hand && player.hand.length > 0) {
           player.hand.forEach((card) => {
-            const cardElement = CardSprites.createCardElement(card.rank, card.suit, "medium")
+            const cardElement = document.createElement("div")
+            cardElement.className = "card medium"
+
+            const img = document.createElement("img")
+            img.src = card.imagePath
+            img.alt = `${card.value} of ${card.suit}`
+            cardElement.appendChild(img)
+
             playerCardsContainer.appendChild(cardElement)
           })
         }
@@ -522,34 +834,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Render dealer
   const renderDealer = () => {
+    if (!dealerCards) return
+
     dealerCards.innerHTML = ""
 
     if (gameState.dealer.hand && gameState.dealer.hand.length > 0) {
       gameState.dealer.hand.forEach((card, index) => {
         // First card is face down if game is in progress
+        const cardElement = document.createElement("div")
+
         if (index === 0 && gameState.status === "playing") {
-          const cardElement = CardSprites.createCardBackElement("medium")
-          dealerCards.appendChild(cardElement)
+          cardElement.className = "card medium face-down back"
         } else {
-          const cardElement = CardSprites.createCardElement(card.rank, card.suit, "medium")
-          dealerCards.appendChild(cardElement)
+          cardElement.className = "card medium"
+
+          const img = document.createElement("img")
+          img.src = card.imagePath
+          img.alt = `${card.value} of ${card.suit}`
+          cardElement.appendChild(img)
         }
+
+        dealerCards.appendChild(cardElement)
       })
     }
 
     // Update dealer score
-    if (gameState.status === "playing") {
-      // Only show score of visible cards
-      const visibleCards = gameState.dealer.hand.slice(1)
-      const visibleScore = visibleCards.reduce((sum, card) => sum + CardSprites.getCardValue(card.rank), 0)
-      dealerScore.textContent = `Score: ${visibleScore}+`
-    } else {
-      dealerScore.textContent = `Score: ${gameState.dealer.score || 0}`
+    if (dealerScore) {
+      if (gameState.status === "playing") {
+        // Only show score of visible cards
+        const visibleCards = gameState.dealer.hand.slice(1)
+        const visibleScore = visibleCards.reduce((sum, card) => {
+          return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
+        }, 0)
+        dealerScore.textContent = `Score: ${visibleScore}+`
+      } else {
+        dealerScore.textContent = `Score: ${gameState.dealer.score || 0}`
+      }
     }
   }
 
   // Update scoreboard
   const updateScoreboard = () => {
+    if (!scoreBody) return
+
     scoreBody.innerHTML = ""
 
     // Sort players by score
@@ -558,10 +885,10 @@ document.addEventListener("DOMContentLoaded", () => {
     sortedPlayers.forEach((player, index) => {
       const row = document.createElement("tr")
       row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${player.username}</td>
-                <td>${player.score || 0}</td>
-            `
+        <td>${index + 1}</td>
+        <td>${player.username}</td>
+        <td>${player.score || 0}</td>
+      `
       scoreBody.appendChild(row)
     })
   }
@@ -575,16 +902,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex]
 
     if (currentPlayer && currentPlayer.id === currentUser.id) {
-      hitBtn.disabled = false
-      standBtn.disabled = false
+      if (hitBtn) hitBtn.disabled = false
+      if (standBtn) standBtn.disabled = false
       startTimer()
-      gameMessage.textContent = "Your turn!"
+      if (gameMessage) gameMessage.textContent = "Your turn!"
     } else {
-      hitBtn.disabled = true
-      standBtn.disabled = true
+      if (hitBtn) hitBtn.disabled = true
+      if (standBtn) standBtn.disabled = true
       stopTimer()
 
-      if (currentPlayer) {
+      if (currentPlayer && gameMessage) {
         gameMessage.textContent = `${currentPlayer.username}'s turn...`
       }
     }
@@ -593,21 +920,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // Start timer
   const startTimer = () => {
     gameState.timeLeft = 30
-    timerText.textContent = gameState.timeLeft + "s"
-    timerBar.style.width = "100%"
-    timerBar.classList.remove("warning", "danger")
+    if (timerText) timerText.textContent = gameState.timeLeft + "s"
+    if (timerBar) {
+      timerBar.style.width = "100%"
+      timerBar.classList.remove("warning", "danger")
+    }
 
     clearInterval(gameState.timer)
     gameState.timer = setInterval(() => {
       gameState.timeLeft--
-      timerText.textContent = gameState.timeLeft + "s"
-      timerBar.style.width = `${(gameState.timeLeft / 30) * 100}%`
+      if (timerText) timerText.textContent = gameState.timeLeft + "s"
+      if (timerBar) timerBar.style.width = `${(gameState.timeLeft / 30) * 100}%`
 
       // Add warning classes
-      if (gameState.timeLeft <= 10) {
+      if (gameState.timeLeft <= 10 && timerBar) {
         timerBar.classList.add("warning")
       }
-      if (gameState.timeLeft <= 5) {
+      if (gameState.timeLeft <= 5 && timerBar) {
         timerBar.classList.add("danger")
       }
 
@@ -641,7 +970,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Calculate hand value
       const handValue = player.hand.reduce((sum, card) => {
-        return sum + CardSprites.getCardValue(card.rank)
+        return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
       }, 0)
 
       // Check for bust
@@ -692,12 +1021,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Dealer play
   const dealerPlay = () => {
-    // Reveal dealer's hidden card
-    renderDealer()
+    // Reveal dealer's hidden card with animation
+    const dealerCardsElement = document.getElementById("dealer-cards")
+    const hiddenCard = dealerCardsElement ? dealerCardsElement.querySelector(".card.face-down") : null
 
+    if (hiddenCard) {
+      // Add flip animation
+      hiddenCard.classList.add("flipping")
+
+      setTimeout(() => {
+        // Replace with actual card
+        renderDealer()
+
+        // Continue dealer play after animation
+        setTimeout(() => {
+          dealerDrawCards()
+        }, 500)
+      }, 500)
+    } else {
+      // No animation needed, just continue
+      renderDealer()
+      dealerDrawCards()
+    }
+  }
+
+  // Dealer draws cards
+  const dealerDrawCards = () => {
     // Calculate dealer's hand value
     let dealerValue = gameState.dealer.hand.reduce((sum, card) => {
-      return sum + CardSprites.getCardValue(card.rank)
+      return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
     }, 0)
 
     // Dealer must hit until 17 or higher
@@ -710,7 +1062,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // Recalculate hand value
           dealerValue = gameState.dealer.hand.reduce((sum, card) => {
-            return sum + CardSprites.getCardValue(card.rank)
+            return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
           }, 0)
 
           // Check for aces if busted
@@ -746,7 +1098,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const endRound = () => {
     // Calculate final scores
     const dealerValue = gameState.dealer.hand.reduce((sum, card) => {
-      return sum + CardSprites.getCardValue(card.rank)
+      return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
     }, 0)
 
     const dealerBusted = dealerValue > 21
@@ -756,7 +1108,7 @@ document.addEventListener("DOMContentLoaded", () => {
     gameState.players.forEach((player) => {
       // Calculate player's hand value
       const playerValue = player.hand.reduce((sum, card) => {
-        return sum + CardSprites.getCardValue(card.rank)
+        return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
       }, 0)
 
       const playerBusted = playerValue > 21
@@ -792,74 +1144,98 @@ document.addEventListener("DOMContentLoaded", () => {
     const roundSummary = document.getElementById("round-summary")
 
     // Clear previous results
-    resultDealerCards.innerHTML = ""
-    playersResults.innerHTML = ""
+    if (resultDealerCards) resultDealerCards.innerHTML = ""
+    if (playersResults) playersResults.innerHTML = ""
 
     // Show dealer's cards and score
-    gameState.dealer.hand.forEach((card) => {
-      const cardElement = CardSprites.createCardElement(card.rank, card.suit, "small")
-      resultDealerCards.appendChild(cardElement)
-    })
+    if (resultDealerCards && resultDealerScore) {
+      gameState.dealer.hand.forEach((card) => {
+        const cardElement = document.createElement("div")
+        cardElement.className = "card small"
 
-    resultDealerScore.textContent = `Score: ${gameState.dealer.score}`
+        const img = document.createElement("img")
+        img.src = card.imagePath
+        img.alt = `${card.value} of ${card.suit}`
+        cardElement.appendChild(img)
+
+        resultDealerCards.appendChild(cardElement)
+      })
+
+      resultDealerScore.textContent = `Score: ${gameState.dealer.score}`
+    }
 
     // Show players' results
-    gameState.players.forEach((player) => {
-      const playerResult = document.createElement("div")
-      playerResult.className = "player-result"
+    if (playersResults) {
+      gameState.players.forEach((player) => {
+        const playerResult = document.createElement("div")
+        playerResult.className = "player-result"
 
-      const playerValue = player.hand.reduce((sum, card) => {
-        return sum + CardSprites.getCardValue(card.rank)
-      }, 0)
+        const playerValue = player.hand.reduce((sum, card) => {
+          return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
+        }, 0)
 
-      playerResult.innerHTML = `
-                <h3>${player.username} ${player.id === currentUser.id ? "(You)" : ""}</h3>
-                <div class="result-cards" id="result-player-${player.id}-cards"></div>
-                <div class="result-score">Score: ${playerValue}</div>
-                <div class="result-status ${player.status === "won" ? "winner" : player.status === "bust" ? "loser" : ""}">${
-                  player.status === "won"
-                    ? "Winner! +10 points"
-                    : player.status === "bust"
-                      ? "Bust!"
-                      : player.status === "push"
-                        ? "Push (Tie)"
-                        : "Lost"
-                }
-                </div>
-            `
+        playerResult.innerHTML = `
+          <h3>${player.username} ${player.id === currentUser.id ? "(You)" : ""}</h3>
+          <div class="result-cards" id="result-player-${player.id}-cards"></div>
+          <div class="result-score">Score: ${playerValue}</div>
+          <div class="result-status ${player.status === "won" ? "winner" : player.status === "bust" ? "loser" : ""}">${
+            player.status === "won"
+              ? "Winner! +10 points"
+              : player.status === "bust"
+                ? "Bust!"
+                : player.status === "push"
+                  ? "Push (Tie)"
+                  : "Lost"
+          }
+          </div>
+        `
 
-      playersResults.appendChild(playerResult)
+        playersResults.appendChild(playerResult)
 
-      // Show player's cards
-      const playerCardsContainer = playerResult.querySelector(`#result-player-${player.id}-cards`)
-      player.hand.forEach((card) => {
-        const cardElement = CardSprites.createCardElement(card.rank, card.suit, "small")
-        playerCardsContainer.appendChild(cardElement)
+        // Show player's cards
+        const playerCardsContainer = playerResult.querySelector(`#result-player-${player.id}-cards`)
+        if (playerCardsContainer) {
+          player.hand.forEach((card) => {
+            const cardElement = document.createElement("div")
+            cardElement.className = "card small"
+
+            const img = document.createElement("img")
+            img.src = card.imagePath
+            img.alt = `${card.value} of ${card.suit}`
+            cardElement.appendChild(img)
+
+            playerCardsContainer.appendChild(cardElement)
+          })
+        }
       })
-    })
+    }
 
     // Show round summary
-    const winners = gameState.players.filter((p) => p.status === "won")
+    if (roundSummary) {
+      const winners = gameState.players.filter((p) => p.status === "won")
 
-    if (winners.length > 0) {
-      roundSummary.innerHTML = `
-                <h3>Round ${gameState.currentRound} Summary</h3>
-                <p>${winners.map((p) => p.username).join(", ")} won this round!</p>
-            `
-    } else {
-      roundSummary.innerHTML = `
-                <h3>Round ${gameState.currentRound} Summary</h3>
-                <p>Dealer wins this round!</p>
-            `
+      if (winners.length > 0) {
+        roundSummary.innerHTML = `
+          <h3>Round ${gameState.currentRound} Summary</h3>
+          <p>${winners.map((p) => p.username).join(", ")} won this round!</p>
+        `
+      } else {
+        roundSummary.innerHTML = `
+          <h3>Round ${gameState.currentRound} Summary</h3>
+          <p>Dealer wins this round!</p>
+        `
+      }
     }
 
     // Show next round button or game over
-    if (gameState.currentRound >= gameState.totalRounds) {
-      nextRoundBtn.textContent = "View Final Results"
-      nextRoundBtn.onclick = showGameOver
-    } else {
-      nextRoundBtn.textContent = "Next Round"
-      nextRoundBtn.onclick = startNextRound
+    if (nextRoundBtn) {
+      if (gameState.currentRound >= gameState.totalRounds) {
+        nextRoundBtn.textContent = "View Final Results"
+        nextRoundBtn.onclick = showGameOver
+      } else {
+        nextRoundBtn.textContent = "Next Round"
+        nextRoundBtn.onclick = startNextRound
+      }
     }
 
     // Show modal
@@ -902,7 +1278,7 @@ document.addEventListener("DOMContentLoaded", () => {
     gameState.dealer.hand.push(gameState.deck.pop())
 
     // Update UI
-    currentRound.textContent = gameState.currentRound
+    if (currentRound) currentRound.textContent = gameState.currentRound
     renderDealer()
     renderPlayers()
 
@@ -923,40 +1299,44 @@ document.addEventListener("DOMContentLoaded", () => {
     const sortedPlayers = [...gameState.players].sort((a, b) => (b.score || 0) - (a.score || 0))
 
     // Show final scores
-    finalScores.innerHTML = `
-            <h3>Final Scores</h3>
-            <table class="results-table">
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Player</th>
-                        <th>Score</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${sortedPlayers
-                      .map(
-                        (player, index) => `
-                        <tr>
-                            <td>${index + 1}</td>
-                            <td>${player.username} ${player.id === currentUser.id ? "(You)" : ""}</td>
-                            <td>${player.score || 0}</td>
-                        </tr>
-                    `,
-                      )
-                      .join("")}
-                </tbody>
-            </table>
-        `
+    if (finalScores) {
+      finalScores.innerHTML = `
+        <h3>Final Scores</h3>
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedPlayers
+              .map(
+                (player, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${player.username} ${player.id === currentUser.id ? "(You)" : ""}</td>
+                  <td>${player.score || 0}</td>
+                </tr>
+              `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      `
+    }
 
     // Show winner announcement
-    const winner = sortedPlayers[0]
-    const isWinnerCurrentUser = winner.id === currentUser.id
+    if (winnerAnnouncement) {
+      const winner = sortedPlayers[0]
+      const isWinnerCurrentUser = winner.id === currentUser.id
 
-    winnerAnnouncement.innerHTML = `
-            <h3>${winner.username} ${isWinnerCurrentUser ? "(You)" : ""} Wins!</h3>
-            <p>With a score of ${winner.score || 0} points</p>
-        `
+      winnerAnnouncement.innerHTML = `
+        <h3>${winner.username} ${isWinnerCurrentUser ? "(You)" : ""} Wins!</h3>
+        <p>With a score of ${winner.score || 0} points</p>
+      `
+    }
 
     // Show modal
     openModal(gameOverModal)
@@ -964,6 +1344,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Add table chat message
   const addTableChatMessage = (message) => {
+    if (!tableChatMessages) return
+
     const messageDiv = document.createElement("div")
     messageDiv.className = "chat-message"
 
@@ -975,10 +1357,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const timeString = timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
     messageDiv.innerHTML = `
-            <div class="chat-message-sender">${message.senderId === currentUser.id ? "You" : message.senderName}</div>
-            <div class="chat-message-content">${message.message}</div>
-            <div class="chat-message-time">${timeString}</div>
-        `
+      <div class="chat-message-sender">${message.senderId === currentUser.id ? "You" : message.senderName}</div>
+      <div class="chat-message-content">${message.message}</div>
+      <div class="chat-message-time">${timeString}</div>
+    `
 
     tableChatMessages.appendChild(messageDiv)
     tableChatMessages.scrollTop = tableChatMessages.scrollHeight
@@ -986,105 +1368,124 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Open modal
   const openModal = (modal) => {
-    modal.classList.add("active")
+    if (modal) modal.classList.add("active")
   }
 
   // Close modal
   const closeModal = (modal) => {
-    modal.classList.remove("active")
+    if (modal) modal.classList.remove("active")
   }
 
   // Event listeners
-  startGameBtn.addEventListener("click", () => {
-    if (WebSocketClient && WebSocketClient.send) {
-      WebSocketClient.send("startGame", {
-        tableId: gameState.tableId,
-      })
-    } else {
-      // Fallback for local testing
-      handleGameStarted({
-        status: "playing",
-      })
-    }
-  })
-
-  cancelGameBtn.addEventListener("click", () => {
-    window.location.href = "lobby.html"
-  })
-
-  hitBtn.addEventListener("click", () => {
-    if (WebSocketClient && WebSocketClient.send) {
-      WebSocketClient.send("gameAction", {
-        action: "hit",
-        tableId: gameState.tableId,
-        playerId: currentUser.id,
-      })
-    } else {
-      // Fallback for local testing
-      handleHitAction(currentUser.id)
-    }
-  })
-
-  standBtn.addEventListener("click", () => {
-    if (WebSocketClient && WebSocketClient.send) {
-      WebSocketClient.send("gameAction", {
-        action: "stand",
-        tableId: gameState.tableId,
-        playerId: currentUser.id,
-      })
-    } else {
-      // Fallback for local testing
-      handleStandAction(currentUser.id)
-    }
-  })
-
-  sendTableChat.addEventListener("click", () => {
-    const message = tableChatInput.value.trim()
-
-    if (message) {
+  if (startGameBtn) {
+    startGameBtn.addEventListener("click", () => {
       if (WebSocketClient && WebSocketClient.send) {
-        WebSocketClient.send("tableMessage", {
+        WebSocketClient.send("startGame", {
           tableId: gameState.tableId,
-          message: message,
         })
       } else {
         // Fallback for local testing
-        addTableChatMessage({
-          id: `msg_${Date.now()}`,
-          senderId: currentUser.id,
-          senderName: currentUser.username,
-          message: message,
-          timestamp: new Date().toISOString(),
+        handleGameStarted({
+          status: "playing",
+        })
+      }
+    })
+  }
+
+  if (cancelGameBtn) {
+    cancelGameBtn.addEventListener("click", () => {
+      window.location.href = "lobby.html"
+    })
+  }
+
+  if (hitBtn) {
+    hitBtn.addEventListener("click", () => {
+      if (WebSocketClient && WebSocketClient.send) {
+        WebSocketClient.send("gameAction", {
+          action: "hit",
+          tableId: gameState.tableId,
+          playerId: currentUser.id,
+        })
+      } else {
+        // Fallback for local testing
+        handleHitAction(currentUser.id)
+      }
+    })
+  }
+
+  if (standBtn) {
+    standBtn.addEventListener("click", () => {
+      if (WebSocketClient && WebSocketClient.send) {
+        WebSocketClient.send("gameAction", {
+          action: "stand",
+          tableId: gameState.tableId,
+          playerId: currentUser.id,
+        })
+      } else {
+        // Fallback for local testing
+        handleStandAction(currentUser.id)
+      }
+    })
+  }
+
+  if (sendTableChat && tableChatInput) {
+    sendTableChat.addEventListener("click", () => {
+      const message = tableChatInput.value.trim()
+
+      if (message) {
+        if (WebSocketClient && WebSocketClient.send) {
+          WebSocketClient.send("tableMessage", {
+            tableId: gameState.tableId,
+            message: message,
+          })
+        } else {
+          // Fallback for local testing
+          const messageObj = {
+            id: `msg_${Date.now()}`,
+            senderId: currentUser.id,
+            senderName: currentUser.username,
+            message: message,
+            timestamp: new Date().toISOString(),
+          }
+          addTableChatMessage(messageObj)
+        }
+
+        tableChatInput.value = ""
+      }
+    })
+  }
+
+  if (tableChatInput) {
+    tableChatInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && sendTableChat) {
+        sendTableChat.click()
+      }
+    })
+  }
+
+  if (leaveTableBtn) {
+    leaveTableBtn.addEventListener("click", () => {
+      if (WebSocketClient && WebSocketClient.send) {
+        WebSocketClient.send("leaveTable", {
+          tableId: gameState.tableId,
         })
       }
 
-      tableChatInput.value = ""
-    }
-  })
+      window.location.href = "lobby.html"
+    })
+  }
 
-  tableChatInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      sendTableChat.click()
-    }
-  })
+  if (playAgainBtn) {
+    playAgainBtn.addEventListener("click", () => {
+      window.location.reload()
+    })
+  }
 
-  leaveTableBtn.addEventListener("click", () => {
-    if (WebSocketClient && WebSocketClient.send) {
-      WebSocketClient.send("leaveTable", {
-        tableId: gameState.tableId,
-      })
-    }
-
-    window.location.href = "lobby.html"
-  })
-
-  playAgainBtn.addEventListener("click", () => {
-    window.location.reload()
-  })
-
-  returnLobbyBtn.addEventListener("click", () => {
-    window.location.href = "lobby.html"
-  })
+  if (returnLobbyBtn) {
+    returnLobbyBtn.addEventListener("click", () => {
+      window.location.href = "lobby.html"
+    })
+  }
 
   // Initialize
   initGame()

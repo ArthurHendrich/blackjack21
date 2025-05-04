@@ -1,246 +1,210 @@
-// WebSocket implementation for real-time multiplayer functionality
+// WebSocket client for BlackjackPro
 
 const WebSocketClient = (() => {
-  // Private variables
-  let socket = null
-  let reconnectAttempts = 0
-  const maxReconnectAttempts = 5
-  let reconnectTimeout = null
-  const eventListeners = {}
-  let userId = null
-  let username = null
-  let currentTableId = null
+  // Constants
+  const RECONNECT_DELAY = 2000 // 2 segundos
+  const MAX_RECONNECT_ATTEMPTS = 5
 
-  // Connection status
+  // Connection status enum
   const ConnectionStatus = {
+    DISCONNECTED: "disconnected",
     CONNECTING: "connecting",
     CONNECTED: "connected",
-    DISCONNECTED: "disconnected",
-    RECONNECTING: "reconnecting",
   }
 
+  // Private variables
+  let socket = null
+  let currentUser = null
+  const eventListeners = {}
   let connectionStatus = ConnectionStatus.DISCONNECTED
+  let reconnectAttempts = 0
+  let reconnectTimer = null
+  const serverUrl = window.location.origin // Use the same origin as the page
 
   // Initialize WebSocket connection
-  const init = (user) => {
-    if (user && user.id && user.username) {
-      userId = user.id
-      username = user.username
-
-      // Conectar ao servidor Socket.io
-      connectToServer()
-
-      return true
+  function init(user) {
+    if (!user || !user.id || !user.username) {
+      console.error("Invalid user data for WebSocket initialization")
+      return
     }
-    return false
+
+    currentUser = user
+    connect()
   }
 
-  // Connect to Socket.io server
-  const connectToServer = () => {
+  // Connect to WebSocket server
+  function connect() {
+    if (socket) {
+      // Clean up existing socket
+      socket.removeAllListeners()
+      socket.disconnect()
+    }
+
     connectionStatus = ConnectionStatus.CONNECTING
-    triggerEvent("connectionStatusChanged", connectionStatus)
+    console.log("Connecting to WebSocket server...")
 
-    // Detectar automaticamente o endereço do servidor
-    const serverUrl = getServerUrl()
+    // Create new socket connection
+    socket = io(serverUrl, {
+      reconnection: true,
+      reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+      reconnectionDelay: RECONNECT_DELAY,
+      timeout: 10000,
+    })
 
-    try {
-      // Conectar ao servidor Socket.io
-      socket = io(serverUrl)
+    // Set up event listeners
+    socket.on("connect", handleConnect)
+    socket.on("disconnect", handleDisconnect)
+    socket.on("connect_error", handleConnectError)
+    socket.on("error", handleError)
 
-      // Set up Socket.io event listeners
-      socket.on("connect", () => {
-        connectionStatus = ConnectionStatus.CONNECTED
-        triggerEvent("connectionStatusChanged", connectionStatus)
-        triggerEvent("connected")
+    // Set up game event listeners
+    socket.on("gameState", (data) => triggerEvent("gameState", data))
+    socket.on("tablesUpdated", (data) => triggerEvent("tablesUpdated", data))
+    socket.on("onlineUsersUpdated", (data) => triggerEvent("onlineUsersUpdated", data))
+    socket.on("tableCreated", (data) => triggerEvent("tableCreated", data))
+    socket.on("tableJoined", (data) => triggerEvent("tableJoined", data))
+    socket.on("tableLeft", () => triggerEvent("tableLeft"))
+    socket.on("playerJoined", (data) => triggerEvent("playerJoined", data))
+    socket.on("playerLeft", (data) => triggerEvent("playerLeft", data))
+    socket.on("gameStarted", (data) => triggerEvent("gameStarted", data))
+    socket.on("gameActionReceived", (data) => triggerEvent("gameActionReceived", data))
+    socket.on("globalMessageReceived", (data) => triggerEvent("globalMessageReceived", data))
+    socket.on("tableMessageReceived", (data) => triggerEvent("tableMessageReceived", data))
+    socket.on("userLeft", (data) => triggerEvent("userLeft", data))
+  }
 
-        // Autenticar com o servidor
-        socket.emit("authenticate", {
-          username: username,
-        })
+  // Handle successful connection
+  function handleConnect() {
+    console.log("WebSocket connected")
+    connectionStatus = ConnectionStatus.CONNECTED
+    reconnectAttempts = 0
 
-        console.log(`Conectado ao servidor: ${serverUrl}`)
-      })
+    // Authenticate with the server
+    if (currentUser) {
+      socket.emit("authenticate", currentUser)
+    }
 
-      socket.on("disconnect", () => {
-        connectionStatus = ConnectionStatus.DISCONNECTED
-        triggerEvent("connectionStatusChanged", connectionStatus)
-        triggerEvent("disconnected")
+    // Trigger connected event
+    triggerEvent("connected")
+  }
 
-        // Tentar reconectar
-        attemptReconnect()
-      })
+  // Handle disconnection
+  function handleDisconnect(reason) {
+    console.log("WebSocket disconnected:", reason)
+    connectionStatus = ConnectionStatus.DISCONNECTED
 
-      socket.on("error", (error) => {
-        console.error("Socket.io error:", error)
-        triggerEvent("error", { message: "Erro de conexão" })
-      })
+    // Trigger disconnected event
+    triggerEvent("disconnected", { reason })
 
-      // Game state events
-      socket.on("gameState", (state) => {
-        console.log("Recebido evento gameState:", state);
-        triggerEvent("gameStateReceived", state);
-      })
-
-      socket.on("onlineUsersUpdated", (users) => {
-        console.log("Recebido evento onlineUsersUpdated:", users);
-        triggerEvent("onlineUsersUpdated", users);
-      })
-
-      socket.on("tablesUpdated", (tables) => {
-        console.log("Recebido evento tablesUpdated:", tables);
-        triggerEvent("tablesUpdated", tables);
-      })
-
-      socket.on("tableCreated", (table) => {
-        console.log("Recebido evento tableCreated:", table);
-        currentTableId = table.id;
-        triggerEvent("tableCreated", table);
-      })
-
-      socket.on("tableJoined", (table) => {
-        currentTableId = table.id
-        triggerEvent("tableJoined", table)
-      })
-
-      socket.on("tableLeft", () => {
-        currentTableId = null
-        triggerEvent("tableLeft")
-      })
-
-      socket.on("gameStarted", (gameState) => {
-        triggerEvent("gameStarted", gameState)
-      })
-
-      socket.on("gameActionReceived", (action) => {
-        triggerEvent("gameActionReceived", action)
-      })
-
-      socket.on("tableMessageReceived", (message) => {
-        triggerEvent("tableMessageReceived", message)
-      })
-
-      socket.on("globalMessageReceived", (message) => {
-        triggerEvent("globalMessageReceived", message)
-      })
-
-      socket.on("error", (error) => {
-        triggerEvent("error", error)
-      })
-    } catch (error) {
-      console.error("Failed to connect to Socket.io server:", error)
-      connectionStatus = ConnectionStatus.DISCONNECTED
-      triggerEvent("connectionStatusChanged", connectionStatus)
-      triggerEvent("error", { message: "Falha ao conectar ao servidor" })
-
-      // Tentar reconectar
+    // Attempt to reconnect if not closing or server disconnect
+    if (reason !== "io client disconnect" && reason !== "io server disconnect") {
       attemptReconnect()
     }
   }
 
-  // Get server URL
-  const getServerUrl = () => {
-    // Tentar obter o endereço do servidor a partir da URL atual
-    const currentUrl = window.location.href
-    const url = new URL(currentUrl)
-    return `${url.protocol}//${url.hostname}:3000` // Porta padrão 3000
+  // Handle connection error
+  function handleConnectError(error) {
+    console.error("WebSocket connection error:", error)
+    connectionStatus = ConnectionStatus.DISCONNECTED
+
+    // Trigger error event
+    triggerEvent("error", { message: "Connection error", error })
+
+    // Attempt to reconnect
+    attemptReconnect()
+  }
+
+  // Handle general error
+  function handleError(error) {
+    console.error("WebSocket error:", error)
+
+    // Trigger error event
+    triggerEvent("error", error)
   }
 
   // Attempt to reconnect
-  const attemptReconnect = () => {
-    if (reconnectAttempts < maxReconnectAttempts) {
-      reconnectAttempts++
-      connectionStatus = ConnectionStatus.RECONNECTING
-      triggerEvent("connectionStatusChanged", connectionStatus)
-
-      console.log(`Tentando reconectar (${reconnectAttempts}/${maxReconnectAttempts})...`)
-
-      clearTimeout(reconnectTimeout)
-      reconnectTimeout = setTimeout(() => {
-        connectToServer()
-      }, 2000 * reconnectAttempts) // Backoff exponencial
-    } else {
-      console.error("Número máximo de tentativas de reconexão atingido")
-      triggerEvent("error", { message: "Não foi possível reconectar ao servidor" })
-    }
-  }
-
-  // Send message to server
-  const send = (type, data) => {
-    if (connectionStatus !== ConnectionStatus.CONNECTED || !socket) {
-      console.error("Cannot send message: WebSocket not connected")
-      return false
-    }
-
-    try {
-      socket.emit(type, data)
-      return true
-    } catch (error) {
-      console.error(`Error sending message: ${error}`)
-      return false
-    }
-  }
-
-  // Disconnect WebSocket
-  const disconnect = () => {
-    if (connectionStatus === ConnectionStatus.DISCONNECTED || !socket) {
+  function attemptReconnect() {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.log("Max reconnect attempts reached")
       return
     }
 
-    try {
-      socket.disconnect()
-    } catch (error) {
-      console.error(`Error disconnecting: ${error}`)
+    reconnectAttempts++
+
+    // Clear any existing reconnect timer
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer)
     }
 
-    // Reset state
-    connectionStatus = ConnectionStatus.DISCONNECTED
-    userId = null
-    username = null
-    currentTableId = null
+    // Set up new reconnect timer
+    const delay = RECONNECT_DELAY * Math.pow(1.5, reconnectAttempts - 1) // Exponential backoff
+    console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts})`)
 
-    // Trigger event
-    triggerEvent("disconnected")
-    triggerEvent("connectionStatusChanged", connectionStatus)
+    reconnectTimer = setTimeout(() => {
+      console.log(`Reconnecting... (attempt ${reconnectAttempts})`)
+      connect()
+    }, delay)
+  }
+
+  // Send message to server
+  function send(event, data) {
+    if (!socket || connectionStatus !== ConnectionStatus.CONNECTED) {
+      console.error("Cannot send message, socket not connected")
+      return false
+    }
+
+    socket.emit(event, data)
+    return true
   }
 
   // Add event listener
-  const addEventListener = (event, callback) => {
+  function addEventListener(event, callback) {
     if (!eventListeners[event]) {
       eventListeners[event] = []
     }
+
     eventListeners[event].push(callback)
   }
 
   // Remove event listener
-  const removeEventListener = (event, callback) => {
-    if (!eventListeners[event]) return
+  function removeEventListener(event, callback) {
+    if (!eventListeners[event]) {
+      return
+    }
+
     eventListeners[event] = eventListeners[event].filter((cb) => cb !== callback)
   }
 
   // Trigger event
-  const triggerEvent = (event, data) => {
-    if (!eventListeners[event]) return
-    eventListeners[event].forEach((callback) => callback(data))
+  function triggerEvent(event, data) {
+    if (!eventListeners[event]) {
+      return
+    }
+
+    eventListeners[event].forEach((callback) => {
+      try {
+        callback(data)
+      } catch (error) {
+        console.error(`Error in ${event} event handler:`, error)
+      }
+    })
   }
 
   // Get connection status
-  const getConnectionStatus = () => connectionStatus
-
-  // Get current table ID
-  const getCurrentTableId = () => currentTableId
+  function getConnectionStatus() {
+    return connectionStatus
+  }
 
   // Public API
   return {
     init,
     send,
-    disconnect,
     addEventListener,
     removeEventListener,
     getConnectionStatus,
-    getCurrentTableId,
     ConnectionStatus,
   }
 })()
 
-// Export for use in other modules
+// Make WebSocketClient available globally
 window.WebSocketClient = WebSocketClient
