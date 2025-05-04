@@ -1,0 +1,133 @@
+/* Estilos para a sala de espera */
+
+.waiting-players {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  
+  .waiting-player {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: var(--light-color);
+    border-radius: var(--border-radius);
+    transition: all 0.3s ease;
+  }
+  
+  .waiting-player.new-player {
+    background-color: rgba(var(--primary-rgb), 0.1);
+    border-left: 4px solid var(--primary-color);
+  }
+  
+  .waiting-player.highlight {
+    animation: pulse-highlight 2s infinite;
+  }
+  
+  @keyframes pulse-highlight {
+    0% {
+      background-color: rgba(var(--primary-rgb), 0.1);
+    }
+    50% {
+      background-color: rgba(var(--primary-rgb), 0.3);
+    }
+    100% {
+      background-color: rgba(var(--primary-rgb), 0.1);
+    }
+  }
+  
+  .player-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 10px;
+  }
+  
+  .player-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .player-name {
+    flex: 1;
+    font-weight: 500;
+  }
+  
+  .player-host {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  
+  .player-status {
+    font-size: 0.8rem;
+    color: var(--gray-dark);
+    margin-left: 10px;
+  }
+  
+  /* Animação para o botão de iniciar jogo */
+  #start-game-btn:not(:disabled) {
+    animation: pulse-button 1.5s infinite;
+  }
+  
+  @keyframes pulse-button {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  
+  /* Estilo para o botão desabilitado */
+  #start-game-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  /* Contador de jogadores */
+  .player-counter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 15px 0;
+    font-size: 1.2rem;
+  }
+  
+  .player-counter-number {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin: 0 5px;
+  }
+  
+  /* Loading spinner */
+  .loading-spinner {
+    margin: 20px auto;
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(var(--primary-rgb), 0.2);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+  

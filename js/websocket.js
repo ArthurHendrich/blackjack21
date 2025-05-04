@@ -64,7 +64,10 @@ const WebSocketClient = (() => {
     socket.on("tableCreated", (data) => triggerEvent("tableCreated", data))
     socket.on("tableJoined", (data) => triggerEvent("tableJoined", data))
     socket.on("tableLeft", () => triggerEvent("tableLeft"))
-    socket.on("playerJoined", (data) => triggerEvent("playerJoined", data))
+    socket.on("playerJoined", (data) => {
+      console.log("Evento playerJoined recebido:", data)
+      triggerEvent("playerJoined", data)
+    })
     socket.on("playerLeft", (data) => triggerEvent("playerLeft", data))
     socket.on("gameStarted", (data) => triggerEvent("gameStarted", data))
     socket.on("gameActionReceived", (data) => triggerEvent("gameActionReceived", data))

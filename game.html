@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/game.css">
     <link rel="stylesheet" href="css/cards.css">
+    <link rel="stylesheet" href="css/waiting-room.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -138,7 +139,9 @@
     <div id="waiting-modal" class="modal">
         <div class="modal-content">
             <h2>Waiting for Players</h2>
-            <p>Current players: <span id="waiting-player-count">1</span>/<span id="waiting-max-players">4</span></p>
+            <div class="player-counter">
+                Current players: <span id="waiting-player-count" class="player-counter-number">1</span>/<span id="waiting-max-players" class="player-counter-number">4</span>
+            </div>
             <div class="waiting-players" id="waiting-players">
                 <!-- Will be populated by JavaScript -->
             </div>
@@ -156,5 +159,6 @@
     <script src="js/ui.js"></script>
     <script src="js/game.js"></script>
     <script src="js/debug.js"></script>
+    <script src="js/debug-communication.js"></script>
 </body>
 </html>

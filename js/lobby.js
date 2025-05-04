@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const localTablesKey = "blackjack_tables"
   let lastServerTablesUpdate = 0 // Timestamp da última atualização de mesas do servidor
   let refreshInterval = null // Intervalo para atualização periódica
+  const currentTableId = null // Para rastrear a mesa atual do usuário
 
   // Initialize WebSocket connection
   const initWebSocket = () => {
@@ -144,6 +145,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return
     }
 
+    // Salvar o estado anterior para comparação
+    const previousTables = [...tables]
+
     // Confiar na lista de mesas do servidor
     tables = [...updatedTables]
 
@@ -152,6 +156,25 @@ document.addEventListener("DOMContentLoaded", () => {
     sessionStorage.setItem(sharedTablesKey, JSON.stringify(tables))
 
     console.log("Mesas atualizadas do servidor:", tables)
+
+    // Verificar se houve mudanças nas mesas que o usuário atual está participando
+    const user = Auth.getCurrentUser()
+    if (user) {
+      const userPreviousTable = previousTables.find((t) => t.players.some((p) => p.id === user.id))
+
+      const userCurrentTable = tables.find((t) => t.players.some((p) => p.id === user.id))
+
+      if (userPreviousTable && userCurrentTable) {
+        const prevPlayerCount = userPreviousTable.players.length
+        const currPlayerCount = userCurrentTable.players.length
+
+        if (currPlayerCount > prevPlayerCount) {
+          console.log(`Detectada entrada de novos jogadores na mesa ${userCurrentTable.name}`)
+          // Podemos adicionar alguma notificação visual aqui se necessário
+        }
+      }
+    }
+
     renderTables()
   }
 
@@ -747,6 +770,51 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.removeItem(localTablesKey)
         sessionStorage.removeItem(sharedTablesKey)
       })
+    }
+
+    // Adicionar manipulador para o evento playerJoined
+    if (WebSocketClient) {
+      WebSocketClient.addEventListener("playerJoined", handlePlayerJoined)
+    }
+  }
+
+  // Handle player joined
+  const handlePlayerJoined = (data) => {
+    console.log("Jogador entrou na sala:", data)
+
+    if (!data || !data.tableId || !data.player) {
+      console.error("Dados inválidos recebidos no evento playerJoined")
+      return
+    }
+
+    // Verificar se estamos na mesa onde o jogador entrou
+    const user = Auth.getCurrentUser()
+    if (user && user.tableId === data.tableId) {
+      console.log("Jogador entrou na nossa mesa, solicitando atualização das mesas")
+
+      // Solicitar atualização imediata das mesas
+      if (WebSocketClient && WebSocketClient.send) {
+        WebSocketClient.send("getTables")
+      }
+
+      // Atualizar a interface com uma mensagem temporária
+      const tableCard = document.querySelector(`.table-card[data-table-id="${data.tableId}"]`)
+      if (tableCard) {
+        const playersElement = tableCard.querySelector(".table-players")
+        if (playersElement) {
+          // Adicionar um indicador visual temporário
+          const tempPlayerDiv = document.createElement("div")
+          tempPlayerDiv.className = "table-player new-player"
+          tempPlayerDiv.title = `${data.player.username} (Entrando...)`
+          tempPlayerDiv.textContent = data.player.username.charAt(0)
+          playersElement.appendChild(tempPlayerDiv)
+
+          // Animar para chamar atenção
+          setTimeout(() => {
+            tempPlayerDiv.classList.add("highlight")
+          }, 100)
+        }
+      }
     }
   }
 

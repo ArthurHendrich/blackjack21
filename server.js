@@ -217,43 +217,64 @@ io.on("connection", (socket) => {
     }
 
     // Adicionar jogador à mesa
-    table.players.push({
+    const newPlayer = {
       id: user.id,
       username: user.username,
       socketId: socket.id,
       position: table.players.length,
       status: "waiting",
-    })
+    }
+
+    table.players.push(newPlayer)
 
     // Atualizar status do usuário
     user.status = "in_table"
     user.tableId = tableId
     user.lastActive = new Date().toISOString()
 
+    // Notificar o jogador que entrou
+    socket.emit("tableJoined", table)
+
+    // Notificar TODOS os jogadores na mesa sobre o novo jogador
+    // Importante: Enviar para TODOS, incluindo o host
+    table.players.forEach((player) => {
+      // Verificar se o socket do jogador está disponível
+      const playerSocket = io.sockets.sockets.get(player.socketId)
+      if (playerSocket) {
+        console.log(`Enviando evento playerJoined para ${player.username} (socketId: ${player.socketId})`)
+        playerSocket.emit("playerJoined", {
+          tableId,
+          player: {
+            id: user.id,
+            username: user.username,
+          },
+        })
+      } else {
+        console.log(`Socket não encontrado para o jogador ${player.username} (socketId: ${player.socketId})`)
+      }
+    })
+
+    // Enviar notificação específica para o host
+    const hostSocket = io.sockets.sockets.get(table.host.socketId)
+    if (hostSocket && hostSocket.id !== socket.id) {
+      console.log(`Enviando notificação especial para o host: ${table.host.username}`)
+      hostSocket.emit("playerJoined", {
+        tableId,
+        player: {
+          id: user.id,
+          username: user.username,
+        },
+        isHost: true,
+      })
+    }
+
     // Notificar todos os usuários sobre a atualização da mesa
     broadcastTables()
     broadcastOnlineUsers()
 
-    // Notificar o jogador que entrou
-    socket.emit("tableJoined", table)
-
-    // Notificar todos os jogadores na mesa
-    table.players.forEach((player) => {
-      if (player.id !== user.id) {
-        const playerSocket = io.sockets.sockets.get(player.socketId)
-        if (playerSocket) {
-          playerSocket.emit("playerJoined", {
-            tableId,
-            player: {
-              id: user.id,
-              username: user.username,
-            },
-          })
-        }
-      }
-    })
-
-    console.log(`${user.username} entrou na mesa: ${table.name}`)
+    console.log(
+      `${user.username} entrou na mesa: ${table.name} (ID: ${tableId}). Total de jogadores: ${table.players.length}`,
+    )
   })
 
   // Sair de uma mesa

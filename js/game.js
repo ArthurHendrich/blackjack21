@@ -459,9 +459,10 @@ window.Game = Game
 
 document.addEventListener("DOMContentLoaded", () => {
   // Import necessary modules
-  const Auth = window.Auth || {}
-  const WebSocketClient = window.WebSocketClient || {}
-  const Animations = window.Animations || {}
+  const Auth = window.Auth
+  const WebSocketClient = window.WebSocketClient
+  const Cards = window.Cards
+  const UI = window.UI
 
   // DOM elements
   const tableName = document.getElementById("table-name")
@@ -470,894 +471,408 @@ document.addEventListener("DOMContentLoaded", () => {
   const dealerCards = document.getElementById("dealer-cards")
   const dealerScore = document.getElementById("dealer-score")
   const playersContainer = document.getElementById("players-container")
-  const deck = document.getElementById("deck")
   const gameMessage = document.getElementById("game-message")
   const timerBar = document.getElementById("timer-bar")
   const timerText = document.getElementById("timer-text")
   const hitBtn = document.getElementById("hit-btn")
   const standBtn = document.getElementById("stand-btn")
-  const scoreBody = document.getElementById("score-body")
+  const leaveTableBtn = document.getElementById("leave-table-btn")
+  const scoreTable = document.getElementById("score-body")
   const tableChatMessages = document.getElementById("table-chat-messages")
   const tableChatInput = document.getElementById("table-chat-input")
   const sendTableChat = document.getElementById("send-table-chat")
-  const leaveTableBtn = document.getElementById("leave-table-btn")
 
   // Modals
-  const roundResultsModal = document.getElementById("round-results-modal")
-  const gameOverModal = document.getElementById("game-over-modal")
   const waitingModal = document.getElementById("waiting-modal")
-  const nextRoundBtn = document.getElementById("next-round-btn")
-  const playAgainBtn = document.getElementById("play-again-btn")
-  const returnLobbyBtn = document.getElementById("return-lobby-btn")
+  const waitingPlayerCount = document.getElementById("waiting-player-count")
+  const waitingMaxPlayers = document.getElementById("waiting-max-players")
+  const waitingPlayers = document.getElementById("waiting-players")
   const startGameBtn = document.getElementById("start-game-btn")
   const cancelGameBtn = document.getElementById("cancel-game-btn")
+  const roundResultsModal = document.getElementById("round-results-modal")
+  const resultDealerCards = document.getElementById("result-dealer-cards")
+  const resultDealerScore = document.getElementById("result-dealer-score")
+  const playersResults = document.getElementById("players-results")
+  const roundSummary = document.getElementById("round-summary")
+  const nextRoundBtn = document.getElementById("next-round-btn")
+  const gameOverModal = document.getElementById("game-over-modal")
+  const finalScores = document.getElementById("final-scores")
+  const winnerAnnouncement = document.getElementById("winner-announcement")
+  const playAgainBtn = document.getElementById("play-again-btn")
+  const returnLobbyBtn = document.getElementById("return-lobby-btn")
 
   // Game state
-  let gameState = {
-    tableId: null,
-    tableName: "",
-    currentRound: 1,
-    totalRounds: 5,
-    currentPlayerIndex: 0,
-    deck: [],
-    dealer: {
-      hand: [],
-      score: 0,
-    },
-    players: [],
-    status: "waiting",
-    timer: null,
-    timeLeft: 30,
-    isHost: false,
-  }
-
-  // Current user
-  const currentUser = Auth.getCurrentUser ? Auth.getCurrentUser() : { id: "guest", username: "Guest" }
+  let currentTable = null
+  let currentGame = null
+  let currentUser = null
+  let isHost = false
+  const timer = null
+  let timerDuration = 30 // Default timer duration in seconds
+  const timerRemaining = 0
+  const playerCards = {}
+  const playerScores = {}
+  const playerStatuses = {}
+  const roundResults = []
+  const gameOver = false
 
   // Initialize game
-  const initGame = () => {
+  const init = () => {
+    console.log("Initializing game...")
+
+    // Get current user
+    currentUser = Auth.getCurrentUser()
+    if (!currentUser) {
+      console.error("No user logged in")
+      window.location.href = "index.html"
+      return
+    }
+
     // Get table ID from URL
     const urlParams = new URLSearchParams(window.location.search)
     const tableId = urlParams.get("table")
 
     if (!tableId) {
+      console.error("No table ID provided")
       window.location.href = "lobby.html"
       return
     }
 
-    // Initialize WebSocket if available
-    if (WebSocketClient && WebSocketClient.init && currentUser) {
-      WebSocketClient.init({
-        id: currentUser.id,
-        username: currentUser.username,
-      })
+    console.log(`Loading table data for ID: ${tableId}`)
 
-      // Set up event listeners
-      if (WebSocketClient.addEventListener) {
-        WebSocketClient.addEventListener("connected", () => handleWebSocketConnected(tableId))
-        WebSocketClient.addEventListener("disconnected", handleWebSocketDisconnected)
-        WebSocketClient.addEventListener("gameStarted", handleGameStarted)
-        WebSocketClient.addEventListener("gameActionReceived", handleGameActionReceived)
-        WebSocketClient.addEventListener("tableMessageReceived", handleTableMessageReceived)
-        WebSocketClient.addEventListener("error", handleWebSocketError)
-        WebSocketClient.addEventListener("tablesUpdated", handleTablesUpdated)
-        WebSocketClient.addEventListener("playerJoined", handlePlayerJoined)
+    // Load table data
+    loadTableData(tableId)
+
+    // Set up event listeners
+    setupEventListeners()
+
+    // Initialize WebSocket connection
+    initWebSocket()
+  }
+
+  // Load table data
+  const loadTableData = (tableId) => {
+    // Try to get table data from localStorage or sessionStorage
+    const tablesStr = sessionStorage.getItem("shared_blackjack_tables") || localStorage.getItem("blackjack_tables")
+
+    if (!tablesStr) {
+      console.error("No tables found in storage")
+      return
+    }
+
+    try {
+      const tables = JSON.parse(tablesStr)
+      currentTable = tables.find((table) => table.id === tableId)
+
+      if (!currentTable) {
+        console.error(`Table with ID ${tableId} not found`)
+        return
       }
-    } else {
-      // Fallback to local game if WebSocket is not available
-      loadTableData(tableId)
+
+      console.log("Table data loaded:", currentTable)
+
+      // Check if current user is the host
+      isHost = currentTable.host.id === currentUser.id
+      console.log(`Current user is host: ${isHost}`)
+
+      // Update UI with table data
+      updateTableInfo()
+
+      // Show waiting modal if game hasn't started
+      if (currentTable.status === "waiting") {
+        showWaitingModal()
+      }
+    } catch (error) {
+      console.error("Error loading table data:", error)
     }
   }
 
-  // Handle WebSocket connected
-  const handleWebSocketConnected = (tableId) => {
-    console.log("WebSocket connected")
-    loadTableData(tableId)
+  // Update table information in UI
+  const updateTableInfo = () => {
+    if (!currentTable) return
+
+    // Update table name
+    if (tableName) tableName.textContent = currentTable.name
+
+    // Update rounds info
+    if (totalRounds) totalRounds.textContent = currentTable.rounds.toString()
+    if (currentRound) currentRound.textContent = "1"
+
+    // Update timer duration
+    timerDuration = currentTable.timeout || 30
   }
 
-  // Handle WebSocket disconnected
-  const handleWebSocketDisconnected = () => {
-    console.log("WebSocket disconnected")
+  // Show waiting modal
+  const showWaitingModal = () => {
+    if (!waitingModal || !currentTable) return
+
+    // Update player count
+    if (waitingPlayerCount) waitingPlayerCount.textContent = currentTable.players.length.toString()
+    if (waitingMaxPlayers) waitingMaxPlayers.textContent = currentTable.maxPlayers.toString()
+
+    // Show/hide start game button based on host status
+    if (startGameBtn) {
+      if (isHost) {
+        startGameBtn.style.display = "block"
+        // Enable start button only if there are at least 2 players
+        startGameBtn.disabled = currentTable.players.length < 2
+      } else {
+        startGameBtn.style.display = "none"
+      }
+    }
+
+    // Update waiting players list
+    updateWaitingPlayers()
+
+    // Show modal
+    waitingModal.classList.add("active")
+  }
+
+  // Update waiting players list
+  const updateWaitingPlayers = () => {
+    if (!waitingPlayers || !currentTable) return
+
+    waitingPlayers.innerHTML = ""
+
+    currentTable.players.forEach((player) => {
+      const playerDiv = document.createElement("div")
+      playerDiv.className = "waiting-player"
+      playerDiv.dataset.playerId = player.id
+
+      const isCurrentUser = player.id === currentUser.id
+
+      playerDiv.innerHTML = `
+        <div class="player-avatar">
+          <img src="assets/avatars/avatar-1.png" alt="${player.username}">
+        </div>
+        <div class="player-name">${isCurrentUser ? "You" : player.username}</div>
+        ${player.id === currentTable.host.id ? '<div class="player-host">Host</div>' : ""}
+      `
+
+      waitingPlayers.appendChild(playerDiv)
+    })
+
+    // Update start button state if host
+    if (isHost && startGameBtn) {
+      startGameBtn.disabled = currentTable.players.length < 2
+    }
+
+    // Log the current players for debugging
+    console.log("Current players in waiting room:", currentTable.players)
+  }
+
+  // Initialize WebSocket connection
+  const initWebSocket = () => {
+    if (!WebSocketClient) {
+      console.error("WebSocketClient not available")
+      return
+    }
+
+    // Initialize WebSocket with current user
+    WebSocketClient.init({
+      id: currentUser.id,
+      username: currentUser.username,
+    })
+
+    // Set up WebSocket event listeners
+    WebSocketClient.addEventListener("connected", handleWebSocketConnected)
+    WebSocketClient.addEventListener("tablesUpdated", handleTablesUpdated)
+    WebSocketClient.addEventListener("playerJoined", handlePlayerJoined)
+    WebSocketClient.addEventListener("playerLeft", handlePlayerLeft)
+    WebSocketClient.addEventListener("gameStarted", handleGameStarted)
+    WebSocketClient.addEventListener("gameActionReceived", handleGameActionReceived)
+    WebSocketClient.addEventListener("tableMessageReceived", handleTableMessageReceived)
+    WebSocketClient.addEventListener("error", handleWebSocketError)
+  }
+
+  // Handle WebSocket connected
+  const handleWebSocketConnected = () => {
+    console.log("WebSocket connected")
+
+    // Request latest table data
+    if (currentTable) {
+      WebSocketClient.send("getTables")
+    }
   }
 
   // Handle tables updated
   const handleTablesUpdated = (tables) => {
-    console.log("Tables updated in game.js:", tables)
+    console.log("Tables updated:", tables)
 
-    if (!Array.isArray(tables) || tables.length === 0) {
-      console.log("No tables received or empty array")
+    if (!currentTable || !tables) return
+
+    // Find current table in updated tables
+    const updatedTable = tables.find((table) => table.id === currentTable.id)
+
+    if (!updatedTable) {
+      console.error("Current table not found in updated tables")
       return
     }
 
-    // Find the current table
-    const urlParams = new URLSearchParams(window.location.search)
-    const tableId = urlParams.get("table")
+    // Check if players have changed
+    const oldPlayerIds = currentTable.players.map((p) => p.id)
+    const newPlayerIds = updatedTable.players.map((p) => p.id)
 
-    const currentTable = tables.find((t) => t.id === tableId)
+    // Log player changes for debugging
+    console.log("Previous players:", oldPlayerIds)
+    console.log("New players:", newPlayerIds)
 
-    if (currentTable) {
-      console.log("Current table found in updated tables:", currentTable)
+    // Update current table
+    currentTable = updatedTable
 
-      // Update game state with the latest table data
-      gameState.tableId = currentTable.id
-      gameState.tableName = currentTable.name
-      gameState.totalRounds = currentTable.rounds
-      gameState.players = currentTable.players
-      gameState.isHost = currentTable.host.id === currentUser.id
-      gameState.status = currentTable.status
+    // Update UI
+    updateTableInfo()
 
-      // Update UI
-      if (tableName) tableName.textContent = currentTable.name
-      if (totalRounds) totalRounds.textContent = currentTable.rounds
+    // Update waiting players if in waiting mode
+    if (currentTable.status === "waiting" && waitingModal.classList.contains("active")) {
+      updateWaitingPlayers()
+    }
 
-      // Update waiting modal if it's open
-      updateWaitingModal()
-
-      // Store the updated table in localStorage
-      const tables = JSON.parse(localStorage.getItem("blackjack_tables") || "[]")
-      const existingTableIndex = tables.findIndex((t) => t.id === currentTable.id)
-
-      if (existingTableIndex >= 0) {
-        tables[existingTableIndex] = currentTable
-      } else {
-        tables.push(currentTable)
+    // Store updated table in localStorage and sessionStorage
+    const tablesStr = localStorage.getItem("blackjack_tables")
+    if (tablesStr) {
+      try {
+        const tables = JSON.parse(tablesStr)
+        const tableIndex = tables.findIndex((t) => t.id === currentTable.id)
+        if (tableIndex !== -1) {
+          tables[tableIndex] = currentTable
+          localStorage.setItem("blackjack_tables", JSON.stringify(tables))
+          sessionStorage.setItem("shared_blackjack_tables", JSON.stringify(tables))
+        }
+      } catch (error) {
+        console.error("Error updating table in storage:", error)
       }
-
-      localStorage.setItem("blackjack_tables", JSON.stringify(tables))
-      sessionStorage.setItem("shared_blackjack_tables", JSON.stringify(tables))
-    } else {
-      console.log("Current table not found in updated tables")
     }
   }
 
   // Handle player joined
   const handlePlayerJoined = (data) => {
-    console.log("Player joined:", data)
+    console.log("Player joined event received:", data)
 
-    if (data && data.tableId === gameState.tableId) {
-      // Request latest table data
-      if (WebSocketClient && WebSocketClient.send) {
-        WebSocketClient.send("getTables")
-      }
+    if (!data || !data.tableId || !data.player) {
+      console.error("Invalid player joined data")
+      return
     }
+
+    // Check if this is for our table
+    if (data.tableId !== currentTable.id) {
+      console.log("Player joined a different table")
+      return
+    }
+
+    console.log(`Player ${data.player.username} joined our table`)
+
+    // Request latest table data to ensure we have the most up-to-date player list
+    WebSocketClient.send("getTables")
+
+    // Add temporary visual indicator
+    const playerExists = currentTable.players.some((p) => p.id === data.player.id)
+
+    if (!playerExists && waitingPlayers) {
+      // Add temporary player entry until the table update arrives
+      const tempPlayerDiv = document.createElement("div")
+      tempPlayerDiv.className = "waiting-player new-player"
+      tempPlayerDiv.dataset.playerId = data.player.id
+      tempPlayerDiv.dataset.temporary = "true"
+
+      tempPlayerDiv.innerHTML = `
+        <div class="player-avatar">
+          <img src="assets/avatars/avatar-1.png" alt="${data.player.username}">
+        </div>
+        <div class="player-name">${data.player.username}</div>
+        <div class="player-status">Joining...</div>
+      `
+
+      waitingPlayers.appendChild(tempPlayerDiv)
+
+      // Highlight the new player
+      setTimeout(() => {
+        tempPlayerDiv.classList.add("highlight")
+      }, 100)
+    }
+
+    // Update start button state if host
+    if (isHost && startGameBtn) {
+      // Count current players plus the new one if not already counted
+      const playerCount = playerExists ? currentTable.players.length : currentTable.players.length + 1
+      startGameBtn.disabled = playerCount < 2
+    }
+  }
+
+  // Handle player left
+  const handlePlayerLeft = (data) => {
+    console.log("Player left:", data)
+
+    if (!data || !data.tableId || !data.playerId) return
+
+    // Check if this is for our table
+    if (data.tableId !== currentTable.id) return
+
+    // Request latest table data
+    WebSocketClient.send("getTables")
   }
 
   // Handle game started
-  const handleGameStarted = (state) => {
-    gameState = { ...gameState, ...state }
-    closeModal(waitingModal)
-    startGame()
+  const handleGameStarted = (gameData) => {
+    console.log("Game started:", gameData)
+
+    if (!gameData || gameData.tableId !== currentTable.id) return
+
+    // Update game state
+    currentGame = gameData
+
+    // Hide waiting modal
+    if (waitingModal) {
+      waitingModal.classList.remove("active")
+    }
+
+    // Initialize game UI
+    initGameUI()
   }
 
   // Handle game action received
-  const handleGameActionReceived = (action) => {
-    // Process game action
-    if (action.action === "hit") {
-      handleHitAction(action.playerId)
-    } else if (action.action === "stand") {
-      handleStandAction(action.playerId)
-    }
+  const handleGameActionReceived = (data) => {
+    console.log("Game action received:", data)
+
+    // Handle game actions here
   }
 
   // Handle table message received
   const handleTableMessageReceived = (message) => {
+    console.log("Table message received:", message)
+
+    if (!message) return
+
     addTableChatMessage(message)
   }
 
   // Handle WebSocket error
   const handleWebSocketError = (error) => {
-    alert(error.message || "An error occurred")
-  }
+    console.error("WebSocket error:", error)
 
-  // Load table data
-  const loadTableData = (tableId) => {
-    console.log("Loading table data for ID:", tableId)
-
-    // Request latest tables from server
-    if (WebSocketClient && WebSocketClient.send) {
-      WebSocketClient.send("getTables")
-    }
-
-    // Try to get tables from sessionStorage first (shared between tabs)
-    const sharedTablesKey = "shared_blackjack_tables"
-    const sharedTables = sessionStorage.getItem(sharedTablesKey)
-    let tables = []
-
-    if (sharedTables) {
-      tables = JSON.parse(sharedTables)
-    } else {
-      // Fall back to localStorage if needed
-      const storedTables = JSON.parse(localStorage.getItem("blackjack_tables") || "[]")
-      tables = storedTables
-
-      // Update sessionStorage for sharing
-      sessionStorage.setItem(sharedTablesKey, JSON.stringify(tables))
-    }
-
-    const table = tables.find((t) => t.id === tableId)
-
-    if (!table) {
-      console.log("Table not found in local storage, waiting for server response...")
-      // Show waiting modal while we wait for server response
-      showWaitingModal()
-      return
-    }
-
-    // Set game state
-    gameState.tableId = table.id
-    gameState.tableName = table.name
-    gameState.totalRounds = table.rounds
-    gameState.players = table.players
-    gameState.isHost = table.host.id === currentUser.id
-
-    // Update UI
-    if (tableName) tableName.textContent = table.name
-    if (totalRounds) totalRounds.textContent = table.rounds
-
-    // Check if game is already in progress
-    if (table.status === "playing") {
-      // Load game state
-      const savedGameState = JSON.parse(localStorage.getItem(`blackjack_game_${tableId}`) || "{}")
-
-      if (savedGameState && savedGameState.tableId) {
-        gameState = { ...gameState, ...savedGameState }
-        startGame()
-      } else {
-        showWaitingModal()
-      }
-    } else {
-      showWaitingModal()
-    }
-
-    // Load table messages
-    loadTableMessages()
-  }
-
-  // Load table messages
-  const loadTableMessages = () => {
-    const tableMessages = JSON.parse(localStorage.getItem("blackjack_table_messages") || "{}")
-
-    if (gameState.tableId && tableMessages[gameState.tableId] && tableChatMessages) {
-      tableChatMessages.innerHTML = ""
-      tableMessages[gameState.tableId].forEach(addTableChatMessage)
+    if (error && error.message) {
+      alert(`Error: ${error.message}`)
     }
   }
 
-  // Update waiting modal
-  const updateWaitingModal = () => {
-    // Update waiting modal content
-    const waitingPlayerCount = document.getElementById("waiting-player-count")
-    const waitingMaxPlayers = document.getElementById("waiting-max-players")
-    const waitingPlayers = document.getElementById("waiting-players")
-
-    if (waitingPlayerCount) waitingPlayerCount.textContent = gameState.players.length
-    if (waitingMaxPlayers) waitingMaxPlayers.textContent = 4
-
-    if (waitingPlayers) {
-      waitingPlayers.innerHTML = ""
-
-      gameState.players.forEach((player) => {
-        const playerDiv = document.createElement("div")
-        playerDiv.className = "waiting-player"
-        playerDiv.innerHTML = `
-          <img src="assets/avatars/avatar-1.png" alt="${player.username}" class="waiting-player-avatar">
-          <span class="waiting-player-name">${player.username}</span>
-          ${player.id === gameState.players[0].id ? '<span class="host-badge">Host</span>' : ""}
-        `
-        waitingPlayers.appendChild(playerDiv)
-      })
-    }
-
-    // Show start game button for host
-    if (startGameBtn) {
-      startGameBtn.style.display = gameState.isHost ? "block" : "none"
-    }
-  }
-
-  // Show waiting modal
-  const showWaitingModal = () => {
-    updateWaitingModal()
-    openModal(waitingModal)
-  }
-
-  // Start game
-  const startGame = () => {
-    // Create and shuffle deck
-    if (!gameState.deck || gameState.deck.length === 0) {
-      gameState.deck = CardSprites.shuffleDeck(CardSprites.createDeck())
-    }
-
-    // Update UI
-    if (currentRound) currentRound.textContent = gameState.currentRound
-
-    // Render players
-    renderPlayers()
-
-    // Render dealer
-    renderDealer()
-
-    // Update scoreboard
-    updateScoreboard()
-
-    // Check if it's current user's turn
-    checkCurrentTurn()
-  }
-
-  // Render players
-  const renderPlayers = () => {
-    if (!playersContainer) return
-
-    playersContainer.innerHTML = ""
-
-    // Create player positions based on max players
-    const maxPlayers = Math.max(4, gameState.players.length)
-
-    for (let i = 0; i < maxPlayers; i++) {
-      const player = gameState.players.find((p) => p.position === i)
-      const isCurrentPlayer = player && player.id === currentUser.id
-      const isCurrentTurn = gameState.status === "playing" && gameState.currentPlayerIndex === i
-
-      const playerDiv = document.createElement("div")
-      playerDiv.className = `player-position ${player ? "" : "empty"} ${isCurrentTurn ? "active" : ""}`
-      playerDiv.id = `player-position-${i}`
-
-      if (player) {
-        playerDiv.innerHTML = `
-          <div class="player-info">
-            <div class="player-name">${player.username} ${isCurrentPlayer ? "(You)" : ""}</div>
-            <div class="player-score">${player.score || 0}</div>
-          </div>
-          ${player.status ? `<div class="player-status">${player.status === "bust" ? "Bust!" : player.status}</div>` : ""}
-          <div class="player-cards" id="player-cards-${player.id}"></div>
-        `
-
-        // Render player cards
-        const playerCardsContainer = playerDiv.querySelector(`#player-cards-${player.id}`)
-        if (playerCardsContainer && player.hand && player.hand.length > 0) {
-          player.hand.forEach((card) => {
-            const cardElement = document.createElement("div")
-            cardElement.className = "card medium"
-
-            const img = document.createElement("img")
-            img.src = card.imagePath
-            img.alt = `${card.value} of ${card.suit}`
-            cardElement.appendChild(img)
-
-            playerCardsContainer.appendChild(cardElement)
-          })
-        }
-      }
-
-      playersContainer.appendChild(playerDiv)
-    }
-  }
-
-  // Render dealer
-  const renderDealer = () => {
-    if (!dealerCards) return
-
-    dealerCards.innerHTML = ""
-
-    if (gameState.dealer.hand && gameState.dealer.hand.length > 0) {
-      gameState.dealer.hand.forEach((card, index) => {
-        // First card is face down if game is in progress
-        const cardElement = document.createElement("div")
-
-        if (index === 0 && gameState.status === "playing") {
-          cardElement.className = "card medium face-down back"
-        } else {
-          cardElement.className = "card medium"
-
-          const img = document.createElement("img")
-          img.src = card.imagePath
-          img.alt = `${card.value} of ${card.suit}`
-          cardElement.appendChild(img)
-        }
-
-        dealerCards.appendChild(cardElement)
-      })
-    }
-
-    // Update dealer score
-    if (dealerScore) {
-      if (gameState.status === "playing") {
-        // Only show score of visible cards
-        const visibleCards = gameState.dealer.hand.slice(1)
-        const visibleScore = visibleCards.reduce((sum, card) => {
-          return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
-        }, 0)
-        dealerScore.textContent = `Score: ${visibleScore}+`
-      } else {
-        dealerScore.textContent = `Score: ${gameState.dealer.score || 0}`
-      }
-    }
-  }
-
-  // Update scoreboard
-  const updateScoreboard = () => {
-    if (!scoreBody) return
-
-    scoreBody.innerHTML = ""
-
-    // Sort players by score
-    const sortedPlayers = [...gameState.players].sort((a, b) => (b.score || 0) - (a.score || 0))
-
-    sortedPlayers.forEach((player, index) => {
-      const row = document.createElement("tr")
-      row.innerHTML = `
-        <td>${index + 1}</td>
-        <td>${player.username}</td>
-        <td>${player.score || 0}</td>
-      `
-      scoreBody.appendChild(row)
-    })
-  }
-
-  // Check current turn
-  const checkCurrentTurn = () => {
-    if (gameState.status !== "playing") {
-      return
-    }
-
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex]
-
-    if (currentPlayer && currentPlayer.id === currentUser.id) {
-      if (hitBtn) hitBtn.disabled = false
-      if (standBtn) standBtn.disabled = false
-      startTimer()
-      if (gameMessage) gameMessage.textContent = "Your turn!"
-    } else {
-      if (hitBtn) hitBtn.disabled = true
-      if (standBtn) standBtn.disabled = true
-      stopTimer()
-
-      if (currentPlayer && gameMessage) {
-        gameMessage.textContent = `${currentPlayer.username}'s turn...`
-      }
-    }
-  }
-
-  // Start timer
-  const startTimer = () => {
-    gameState.timeLeft = 30
-    if (timerText) timerText.textContent = gameState.timeLeft + "s"
-    if (timerBar) {
-      timerBar.style.width = "100%"
-      timerBar.classList.remove("warning", "danger")
-    }
-
-    clearInterval(gameState.timer)
-    gameState.timer = setInterval(() => {
-      gameState.timeLeft--
-      if (timerText) timerText.textContent = gameState.timeLeft + "s"
-      if (timerBar) timerBar.style.width = `${(gameState.timeLeft / 30) * 100}%`
-
-      // Add warning classes
-      if (gameState.timeLeft <= 10 && timerBar) {
-        timerBar.classList.add("warning")
-      }
-      if (gameState.timeLeft <= 5 && timerBar) {
-        timerBar.classList.add("danger")
-      }
-
-      if (gameState.timeLeft <= 0) {
-        stopTimer()
-        handleStandAction(currentUser.id)
-      }
-    }, 1000)
-  }
-
-  // Stop timer
-  const stopTimer = () => {
-    clearInterval(gameState.timer)
-  }
-
-  // Handle hit action
-  const handleHitAction = (playerId) => {
-    const playerIndex = gameState.players.findIndex((p) => p.id === playerId)
-
-    if (playerIndex === -1 || playerIndex !== gameState.currentPlayerIndex) {
-      return
-    }
-
-    const player = gameState.players[playerIndex]
-
-    // Deal a card to the player
-    if (gameState.deck.length > 0) {
-      const card = gameState.deck.pop()
-      player.hand = player.hand || []
-      player.hand.push(card)
-
-      // Calculate hand value
-      const handValue = player.hand.reduce((sum, card) => {
-        return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
-      }, 0)
-
-      // Check for bust
-      if (handValue > 21) {
-        // Check for aces that can be counted as 1 instead of 11
-        let aceCount = player.hand.filter((card) => card.rank === CardSprites.RANKS.ACE).length
-        let adjustedValue = handValue
-
-        while (aceCount > 0 && adjustedValue > 21) {
-          adjustedValue -= 10 // Reduce ace value from 11 to 1
-          aceCount--
-        }
-
-        if (adjustedValue > 21) {
-          player.status = "bust"
-          handleStandAction(playerId)
-        }
-      }
-
-      // Update UI
-      renderPlayers()
-    }
-  }
-
-  // Handle stand action
-  const handleStandAction = (playerId) => {
-    const playerIndex = gameState.players.findIndex((p) => p.id === playerId)
-
-    if (playerIndex === -1 || playerIndex !== gameState.currentPlayerIndex) {
-      return
-    }
-
-    const player = gameState.players[playerIndex]
-    player.status = player.status || "stood"
-
-    // Move to next player
-    gameState.currentPlayerIndex++
-
-    // If all players have played, it's dealer's turn
-    if (gameState.currentPlayerIndex >= gameState.players.length) {
-      dealerPlay()
-    } else {
-      // Update UI for next player
-      renderPlayers()
-      checkCurrentTurn()
-    }
-  }
-
-  // Dealer play
-  const dealerPlay = () => {
-    // Reveal dealer's hidden card with animation
-    const dealerCardsElement = document.getElementById("dealer-cards")
-    const hiddenCard = dealerCardsElement ? dealerCardsElement.querySelector(".card.face-down") : null
-
-    if (hiddenCard) {
-      // Add flip animation
-      hiddenCard.classList.add("flipping")
-
-      setTimeout(() => {
-        // Replace with actual card
-        renderDealer()
-
-        // Continue dealer play after animation
-        setTimeout(() => {
-          dealerDrawCards()
-        }, 500)
-      }, 500)
-    } else {
-      // No animation needed, just continue
-      renderDealer()
-      dealerDrawCards()
-    }
-  }
-
-  // Dealer draws cards
-  const dealerDrawCards = () => {
-    // Calculate dealer's hand value
-    let dealerValue = gameState.dealer.hand.reduce((sum, card) => {
-      return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
-    }, 0)
-
-    // Dealer must hit until 17 or higher
-    const dealerTurn = () => {
-      if (dealerValue < 17) {
-        // Deal a card to dealer
-        if (gameState.deck.length > 0) {
-          const card = gameState.deck.pop()
-          gameState.dealer.hand.push(card)
-
-          // Recalculate hand value
-          dealerValue = gameState.dealer.hand.reduce((sum, card) => {
-            return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
-          }, 0)
-
-          // Check for aces if busted
-          if (dealerValue > 21) {
-            let aceCount = gameState.dealer.hand.filter((card) => card.rank === CardSprites.RANKS.ACE).length
-            let adjustedValue = dealerValue
-
-            while (aceCount > 0 && adjustedValue > 21) {
-              adjustedValue -= 10
-              aceCount--
-            }
-
-            dealerValue = adjustedValue
-          }
-
-          // Update UI
-          renderDealer()
-
-          // Continue dealer play after a delay
-          setTimeout(dealerTurn, 1000)
-        }
-      } else {
-        // Dealer stands, end the round
-        endRound()
-      }
-    }
-
-    // Start dealer play with a delay
-    setTimeout(dealerTurn, 1000)
-  }
-
-  // End round
-  const endRound = () => {
-    // Calculate final scores
-    const dealerValue = gameState.dealer.hand.reduce((sum, card) => {
-      return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
-    }, 0)
-
-    const dealerBusted = dealerValue > 21
-    gameState.dealer.score = dealerValue
-
-    // Determine winners
-    gameState.players.forEach((player) => {
-      // Calculate player's hand value
-      const playerValue = player.hand.reduce((sum, card) => {
-        return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
-      }, 0)
-
-      const playerBusted = playerValue > 21
-
-      // Update player status and score
-      if (playerBusted) {
-        player.status = "bust"
-      } else if (dealerBusted || playerValue > dealerValue) {
-        player.status = "won"
-        player.score = (player.score || 0) + 10
-      } else if (playerValue < dealerValue) {
-        player.status = "lost"
-      } else {
-        player.status = "push"
-      }
-    })
-
-    // Update UI
-    renderDealer()
-    renderPlayers()
-    updateScoreboard()
-
-    // Show round results
-    showRoundResults()
-  }
-
-  // Show round results
-  const showRoundResults = () => {
-    // Update round results modal
-    const resultDealerCards = document.getElementById("result-dealer-cards")
-    const resultDealerScore = document.getElementById("result-dealer-score")
-    const playersResults = document.getElementById("players-results")
-    const roundSummary = document.getElementById("round-summary")
-
-    // Clear previous results
-    if (resultDealerCards) resultDealerCards.innerHTML = ""
-    if (playersResults) playersResults.innerHTML = ""
-
-    // Show dealer's cards and score
-    if (resultDealerCards && resultDealerScore) {
-      gameState.dealer.hand.forEach((card) => {
-        const cardElement = document.createElement("div")
-        cardElement.className = "card small"
-
-        const img = document.createElement("img")
-        img.src = card.imagePath
-        img.alt = `${card.value} of ${card.suit}`
-        cardElement.appendChild(img)
-
-        resultDealerCards.appendChild(cardElement)
-      })
-
-      resultDealerScore.textContent = `Score: ${gameState.dealer.score}`
-    }
-
-    // Show players' results
-    if (playersResults) {
-      gameState.players.forEach((player) => {
-        const playerResult = document.createElement("div")
-        playerResult.className = "player-result"
-
-        const playerValue = player.hand.reduce((sum, card) => {
-          return sum + (CardSprites.getCardValue ? CardSprites.getCardValue(card.rank) : 0)
-        }, 0)
-
-        playerResult.innerHTML = `
-          <h3>${player.username} ${player.id === currentUser.id ? "(You)" : ""}</h3>
-          <div class="result-cards" id="result-player-${player.id}-cards"></div>
-          <div class="result-score">Score: ${playerValue}</div>
-          <div class="result-status ${player.status === "won" ? "winner" : player.status === "bust" ? "loser" : ""}">${
-            player.status === "won"
-              ? "Winner! +10 points"
-              : player.status === "bust"
-                ? "Bust!"
-                : player.status === "push"
-                  ? "Push (Tie)"
-                  : "Lost"
-          }
-          </div>
-        `
-
-        playersResults.appendChild(playerResult)
-
-        // Show player's cards
-        const playerCardsContainer = playerResult.querySelector(`#result-player-${player.id}-cards`)
-        if (playerCardsContainer) {
-          player.hand.forEach((card) => {
-            const cardElement = document.createElement("div")
-            cardElement.className = "card small"
-
-            const img = document.createElement("img")
-            img.src = card.imagePath
-            img.alt = `${card.value} of ${card.suit}`
-            cardElement.appendChild(img)
-
-            playerCardsContainer.appendChild(cardElement)
-          })
-        }
-      })
-    }
-
-    // Show round summary
-    if (roundSummary) {
-      const winners = gameState.players.filter((p) => p.status === "won")
-
-      if (winners.length > 0) {
-        roundSummary.innerHTML = `
-          <h3>Round ${gameState.currentRound} Summary</h3>
-          <p>${winners.map((p) => p.username).join(", ")} won this round!</p>
-        `
-      } else {
-        roundSummary.innerHTML = `
-          <h3>Round ${gameState.currentRound} Summary</h3>
-          <p>Dealer wins this round!</p>
-        `
-      }
-    }
-
-    // Show next round button or game over
-    if (nextRoundBtn) {
-      if (gameState.currentRound >= gameState.totalRounds) {
-        nextRoundBtn.textContent = "View Final Results"
-        nextRoundBtn.onclick = showGameOver
-      } else {
-        nextRoundBtn.textContent = "Next Round"
-        nextRoundBtn.onclick = startNextRound
-      }
-    }
-
-    // Show modal
-    openModal(roundResultsModal)
-  }
-
-  // Start next round
-  const startNextRound = () => {
-    // Close round results modal
-    closeModal(roundResultsModal)
-
-    // Increment round counter
-    gameState.currentRound++
-
-    // Reset round state
-    gameState.deck = CardSprites.shuffleDeck(CardSprites.createDeck())
-    gameState.dealer.hand = []
-    gameState.currentPlayerIndex = 0
-
-    gameState.players.forEach((player) => {
-      player.hand = []
-      player.status = "playing"
-    })
-
-    // Deal initial cards
-    // First card for each player
-    gameState.players.forEach((player) => {
-      player.hand.push(gameState.deck.pop())
-    })
-
-    // First card for dealer
-    gameState.dealer.hand.push(gameState.deck.pop())
-
-    // Second card for each player
-    gameState.players.forEach((player) => {
-      player.hand.push(gameState.deck.pop())
-    })
-
-    // Second card for dealer
-    gameState.dealer.hand.push(gameState.deck.pop())
-
-    // Update UI
-    if (currentRound) currentRound.textContent = gameState.currentRound
-    renderDealer()
-    renderPlayers()
-
-    // Start first player's turn
-    checkCurrentTurn()
-  }
-
-  // Show game over
-  const showGameOver = () => {
-    // Close round results modal
-    closeModal(roundResultsModal)
-
-    // Update game over modal
-    const finalScores = document.getElementById("final-scores")
-    const winnerAnnouncement = document.getElementById("winner-announcement")
-
-    // Sort players by score
-    const sortedPlayers = [...gameState.players].sort((a, b) => (b.score || 0) - (a.score || 0))
-
-    // Show final scores
-    if (finalScores) {
-      finalScores.innerHTML = `
-        <h3>Final Scores</h3>
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Player</th>
-              <th>Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sortedPlayers
-              .map(
-                (player, index) => `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td>${player.username} ${player.id === currentUser.id ? "(You)" : ""}</td>
-                  <td>${player.score || 0}</td>
-                </tr>
-              `,
-              )
-              .join("")}
-          </tbody>
-        </table>
-      `
-    }
-
-    // Show winner announcement
-    if (winnerAnnouncement) {
-      const winner = sortedPlayers[0]
-      const isWinnerCurrentUser = winner.id === currentUser.id
-
-      winnerAnnouncement.innerHTML = `
-        <h3>${winner.username} ${isWinnerCurrentUser ? "(You)" : ""} Wins!</h3>
-        <p>With a score of ${winner.score || 0} points</p>
-      `
-    }
-
-    // Show modal
-    openModal(gameOverModal)
+  // Initialize game UI
+  const initGameUI = () => {
+    // Initialize game UI here
   }
 
   // Add table chat message
   const addTableChatMessage = (message) => {
     if (!tableChatMessages) return
 
-    const messageDiv = document.createElement("div")
-    messageDiv.className = "chat-message"
+    const isOwnMessage = message.senderId === currentUser.id
 
-    if (message.senderId === currentUser.id) {
-      messageDiv.classList.add("own-message")
-    }
+    const messageDiv = document.createElement("div")
+    messageDiv.className = `chat-message ${isOwnMessage ? "own-message" : ""}`
 
     const timestamp = new Date(message.timestamp)
     const timeString = timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
     messageDiv.innerHTML = `
-      <div class="chat-message-sender">${message.senderId === currentUser.id ? "You" : message.senderName}</div>
+      <div class="chat-message-sender">${isOwnMessage ? "You" : message.senderName}</div>
       <div class="chat-message-content">${message.message}</div>
       <div class="chat-message-time">${timeString}</div>
     `
@@ -1366,127 +881,130 @@ document.addEventListener("DOMContentLoaded", () => {
     tableChatMessages.scrollTop = tableChatMessages.scrollHeight
   }
 
-  // Open modal
-  const openModal = (modal) => {
-    if (modal) modal.classList.add("active")
-  }
+  // Set up event listeners
+  const setupEventListeners = () => {
+    // Leave table button
+    if (leaveTableBtn) {
+      leaveTableBtn.addEventListener("click", handleLeaveTable)
+    }
 
-  // Close modal
-  const closeModal = (modal) => {
-    if (modal) modal.classList.remove("active")
-  }
+    // Start game button
+    if (startGameBtn) {
+      startGameBtn.addEventListener("click", handleStartGame)
+    }
 
-  // Event listeners
-  if (startGameBtn) {
-    startGameBtn.addEventListener("click", () => {
-      if (WebSocketClient && WebSocketClient.send) {
-        WebSocketClient.send("startGame", {
-          tableId: gameState.tableId,
-        })
-      } else {
-        // Fallback for local testing
-        handleGameStarted({
-          status: "playing",
-        })
-      }
-    })
-  }
+    // Cancel game button
+    if (cancelGameBtn) {
+      cancelGameBtn.addEventListener("click", handleLeaveTable)
+    }
 
-  if (cancelGameBtn) {
-    cancelGameBtn.addEventListener("click", () => {
-      window.location.href = "lobby.html"
-    })
-  }
+    // Game action buttons
+    if (hitBtn) {
+      hitBtn.addEventListener("click", () => handleGameAction("hit"))
+    }
 
-  if (hitBtn) {
-    hitBtn.addEventListener("click", () => {
-      if (WebSocketClient && WebSocketClient.send) {
-        WebSocketClient.send("gameAction", {
-          action: "hit",
-          tableId: gameState.tableId,
-          playerId: currentUser.id,
-        })
-      } else {
-        // Fallback for local testing
-        handleHitAction(currentUser.id)
-      }
-    })
-  }
+    if (standBtn) {
+      standBtn.addEventListener("click", () => handleGameAction("stand"))
+    }
 
-  if (standBtn) {
-    standBtn.addEventListener("click", () => {
-      if (WebSocketClient && WebSocketClient.send) {
-        WebSocketClient.send("gameAction", {
-          action: "stand",
-          tableId: gameState.tableId,
-          playerId: currentUser.id,
-        })
-      } else {
-        // Fallback for local testing
-        handleStandAction(currentUser.id)
-      }
-    })
-  }
+    // Chat
+    if (sendTableChat) {
+      sendTableChat.addEventListener("click", handleSendTableChat)
+    }
 
-  if (sendTableChat && tableChatInput) {
-    sendTableChat.addEventListener("click", () => {
-      const message = tableChatInput.value.trim()
-
-      if (message) {
-        if (WebSocketClient && WebSocketClient.send) {
-          WebSocketClient.send("tableMessage", {
-            tableId: gameState.tableId,
-            message: message,
-          })
-        } else {
-          // Fallback for local testing
-          const messageObj = {
-            id: `msg_${Date.now()}`,
-            senderId: currentUser.id,
-            senderName: currentUser.username,
-            message: message,
-            timestamp: new Date().toISOString(),
-          }
-          addTableChatMessage(messageObj)
+    if (tableChatInput) {
+      tableChatInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          handleSendTableChat()
         }
+      })
+    }
 
-        tableChatInput.value = ""
-      }
-    })
+    // Next round button
+    if (nextRoundBtn) {
+      nextRoundBtn.addEventListener("click", handleNextRound)
+    }
+
+    // Play again button
+    if (playAgainBtn) {
+      playAgainBtn.addEventListener("click", handlePlayAgain)
+    }
+
+    // Return to lobby button
+    if (returnLobbyBtn) {
+      returnLobbyBtn.addEventListener("click", handleReturnToLobby)
+    }
   }
 
-  if (tableChatInput) {
-    tableChatInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && sendTableChat) {
-        sendTableChat.click()
-      }
-    })
+  // Handle leave table
+  const handleLeaveTable = () => {
+    if (WebSocketClient) {
+      WebSocketClient.send("leaveTable")
+    }
+
+    window.location.href = "lobby.html"
   }
 
-  if (leaveTableBtn) {
-    leaveTableBtn.addEventListener("click", () => {
-      if (WebSocketClient && WebSocketClient.send) {
-        WebSocketClient.send("leaveTable", {
-          tableId: gameState.tableId,
-        })
-      }
+  // Handle start game
+  const handleStartGame = () => {
+    if (!isHost) {
+      alert("Only the host can start the game")
+      return
+    }
 
-      window.location.href = "lobby.html"
-    })
+    if (currentTable.players.length < 2) {
+      alert("Need at least 2 players to start the game")
+      return
+    }
+
+    if (WebSocketClient) {
+      WebSocketClient.send("startGame", { tableId: currentTable.id })
+    }
   }
 
-  if (playAgainBtn) {
-    playAgainBtn.addEventListener("click", () => {
-      window.location.reload()
-    })
+  // Handle game action
+  const handleGameAction = (action) => {
+    if (!currentGame) return
+
+    if (WebSocketClient) {
+      WebSocketClient.send("gameAction", {
+        tableId: currentTable.id,
+        action: action,
+      })
+    }
   }
 
-  if (returnLobbyBtn) {
-    returnLobbyBtn.addEventListener("click", () => {
-      window.location.href = "lobby.html"
-    })
+  // Handle send table chat
+  const handleSendTableChat = () => {
+    if (!tableChatInput || !currentTable) return
+
+    const message = tableChatInput.value.trim()
+
+    if (message && WebSocketClient) {
+      WebSocketClient.send("tableMessage", {
+        tableId: currentTable.id,
+        message: message,
+      })
+
+      tableChatInput.value = ""
+    }
   }
 
-  // Initialize
-  initGame()
+  // Handle next round
+  const handleNextRound = () => {
+    // Handle next round logic
+  }
+
+  // Handle play again
+  const handlePlayAgain = () => {
+    // Handle play again logic
+  }
+
+  // Handle return to lobby
+  const handleReturnToLobby = () => {
+    window.location.href = "lobby.html"
+  }
+
+  // Start the game
+  init()
 })
